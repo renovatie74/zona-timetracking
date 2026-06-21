@@ -14,7 +14,9 @@ const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
 const SELECT_COLS = `
-  u.id, u.employee_number AS employee_code, u.name, u.email, u.mobile AS phone,
+  u.id, u.employee_number AS employee_code, u.first_name, u.last_name,
+  (u.first_name || ' ' || u.last_name) AS name,
+  u.email, u.mobile AS phone,
   u.team_id, u.is_active, u.created_at, u.updated_at,
   r.name AS role, t.name AS team_name,
   CASE WHEN u.is_active = 1 THEN 'active'
@@ -63,8 +65,8 @@ export async function list(request, env) {
 
   if (search) {
     const like = `%${search}%`;
-    conditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.employee_number LIKE ?)');
-    params.push(like, like, like);
+    conditions.push('(u.first_name LIKE ? OR u.last_name LIKE ? OR (u.first_name || \' \' || u.last_name) LIKE ? OR u.email LIKE ? OR u.employee_number LIKE ?)');
+    params.push(like, like, like, like, like);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -100,10 +102,11 @@ export async function create(request, env, ctx) {
   const guard = await ADMIN(request, env);
   if (guard) return guard;
 
-  const { name, email, phone = null, role = 'employee', team_id = null } = await request.json();
+  const { first_name, last_name, email, phone = null, role = 'employee', team_id = null } = await request.json();
 
-  if (!name?.trim()) return Response.json({ error: 'Name is required' }, { status: 400 });
-  if (!email?.trim()) return Response.json({ error: 'Email is required' }, { status: 400 });
+  if (!first_name?.trim()) return Response.json({ error: 'First name is required' }, { status: 400 });
+  if (!last_name?.trim())  return Response.json({ error: 'Last name is required' }, { status: 400 });
+  if (!email?.trim())      return Response.json({ error: 'Email is required' }, { status: 400 });
 
   const phoneErr = validatePhone(phone);
   if (phoneErr) return Response.json({ error: phoneErr }, { status: 400 });
@@ -115,15 +118,17 @@ export async function create(request, env, ctx) {
   const inviteToken   = generateInvitationToken();
   const inviteExpires = invitationExpiry();
   const now = new Date().toISOString();
+  const fullName = `${first_name.trim()} ${last_name.trim()}`;
 
   let userId;
   try {
     const result = await env.DB.prepare(
       `INSERT INTO Users
-         (role_id, employee_number, name, email, mobile, team_id, is_active,
+         (role_id, employee_number, first_name, last_name, email, mobile, team_id, is_active,
           invitation_token, invitation_token_expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
-    ).bind(role_id, employee_number, name.trim(), email.trim().toLowerCase(), phone, team_id,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+    ).bind(role_id, employee_number, first_name.trim(), last_name.trim(),
+           email.trim().toLowerCase(), phone, team_id,
            inviteToken, inviteExpires, now, now).run();
     userId = result.meta.last_row_id;
   } catch (e) {
@@ -133,11 +138,11 @@ export async function create(request, env, ctx) {
     throw e;
   }
 
-  ctx?.waitUntil(sendInvitation(env, { name: name.trim(), email: email.trim().toLowerCase(), token: inviteToken }));
+  ctx?.waitUntil(sendInvitation(env, { name: fullName, email: email.trim().toLowerCase(), token: inviteToken }));
 
   await writeAudit(env.DB, {
     actorId: request.user.id, action: 'created', entityType: 'employee', entityId: userId,
-    oldValues: null, newValues: { name, email, role, team_id },
+    oldValues: null, newValues: { first_name, last_name, email, role, team_id },
   });
 
   const created = await env.DB.prepare(
@@ -162,10 +167,11 @@ export async function update(request, env) {
   const body = await request.json();
   const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 2, employee: 1, worker: 1 };
 
-  const name      = body.name      !== undefined ? body.name.trim()                : old.name;
-  const email     = body.email     !== undefined ? body.email.trim().toLowerCase() : old.email;
-  const rawPhone  = body.phone     !== undefined ? body.phone                      : old.mobile;
-  const phoneErr  = validatePhone(rawPhone);
+  const first_name = body.first_name !== undefined ? body.first_name.trim() : old.first_name;
+  const last_name  = body.last_name  !== undefined ? body.last_name.trim()  : old.last_name;
+  const email      = body.email      !== undefined ? body.email.trim().toLowerCase() : old.email;
+  const rawPhone   = body.phone      !== undefined ? body.phone              : old.mobile;
+  const phoneErr   = validatePhone(rawPhone);
   if (phoneErr) return Response.json({ error: phoneErr }, { status: 400 });
   const phone     = rawPhone;
   const team_id   = body.team_id   !== undefined ? body.team_id                    : old.team_id;
@@ -176,9 +182,9 @@ export async function update(request, env) {
   try {
     await env.DB.prepare(
       `UPDATE Users
-       SET name = ?, email = ?, mobile = ?, team_id = ?, is_active = ?, role_id = ?, updated_at = ?
+       SET first_name = ?, last_name = ?, email = ?, mobile = ?, team_id = ?, is_active = ?, role_id = ?, updated_at = ?
        WHERE id = ?`,
-    ).bind(name, email, phone, team_id, is_active, role_id, now, id).run();
+    ).bind(first_name, last_name, email, phone, team_id, is_active, role_id, now, id).run();
   } catch (e) {
     if (e.message?.includes('UNIQUE')) {
       return Response.json({ error: 'An employee with that email already exists' }, { status: 409 });
@@ -188,7 +194,7 @@ export async function update(request, env) {
 
   await writeAudit(env.DB, {
     actorId: request.user.id, action: 'updated', entityType: 'employee', entityId: Number(id),
-    oldValues: { name: old.name, email: old.email }, newValues: body,
+    oldValues: { first_name: old.first_name, last_name: old.last_name, email: old.email }, newValues: body,
   });
 
   const updated = await env.DB.prepare(
@@ -207,7 +213,7 @@ export async function remove(request, env) {
   if (guard) return guard;
 
   const id  = request.params.id;
-  const old = await env.DB.prepare('SELECT id, name FROM Users WHERE id = ?').bind(id).first();
+  const old = await env.DB.prepare('SELECT id, first_name, last_name FROM Users WHERE id = ?').bind(id).first();
   if (!old) return Response.json({ error: 'Employee not found' }, { status: 404 });
 
   const now = new Date().toISOString();
@@ -217,7 +223,7 @@ export async function remove(request, env) {
 
   await writeAudit(env.DB, {
     actorId: request.user.id, action: 'deactivated', entityType: 'employee', entityId: Number(id),
-    oldValues: old, newValues: null,
+    oldValues: { first_name: old.first_name, last_name: old.last_name }, newValues: null,
   });
 
   return Response.json({ ok: true });
@@ -229,7 +235,7 @@ export async function reactivate(request, env) {
 
   const id  = request.params.id;
   const emp = await env.DB.prepare(
-    'SELECT id, name, is_active, password_hash FROM Users WHERE id = ?',
+    'SELECT id, first_name, last_name, is_active, password_hash FROM Users WHERE id = ?',
   ).bind(id).first();
   if (!emp) return Response.json({ error: 'Employee not found' }, { status: 404 });
 

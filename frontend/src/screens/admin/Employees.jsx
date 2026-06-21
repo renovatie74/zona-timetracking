@@ -6,7 +6,7 @@ import AppShell                from '../AppShell.jsx';
 import PhoneInput              from '../../components/PhoneInput.jsx';
 
 const ROLES = ['employee', 'manager', 'administrator'];
-const EMPTY = { name: '', email: '', phone: '', role: 'employee', team_id: '' };
+const EMPTY = { first_name: '', last_name: '', email: '', phone: '', role: 'employee', team_id: '' };
 
 export default function Employees() {
   const { user } = useAuth();
@@ -83,14 +83,23 @@ export default function Employees() {
 
   function openEdit(item) {
     setForm({
-      name:    item.name             ?? '',
-      email:   item.email            ?? '',
-      phone:   item.phone            ?? '',
-      role:    item.role             ?? 'employee',
-      team_id: item.team_id != null  ? String(item.team_id) : '',
+      first_name: item.first_name        ?? '',
+      last_name:  item.last_name         ?? '',
+      email:      item.email             ?? '',
+      phone:      item.phone             ?? '',
+      role:       item.role              ?? 'employee',
+      team_id:    item.team_id != null   ? String(item.team_id) : '',
     });
     setError('');
     setModal({ mode: 'edit', id: item.id, item });
+  }
+
+  function handleReset() {
+    setSearch('');
+    setStatusFilter('');
+    setRoleFilter('');
+    setTeamFilter('');
+    load('', '', '', '');
   }
 
   async function handleSave(e) {
@@ -99,9 +108,12 @@ export default function Employees() {
     setError('');
     try {
       const body = {
-        ...form,
-        phone:   form.phone   || null,
-        team_id: form.team_id ? Number(form.team_id) : null,
+        first_name: form.first_name,
+        last_name:  form.last_name,
+        email:      form.email,
+        phone:      form.phone   || null,
+        role:       form.role,
+        team_id:    form.team_id ? Number(form.team_id) : null,
       };
       if (modal.mode === 'create') {
         await api.post('/api/employees', body);
@@ -154,7 +166,7 @@ export default function Employees() {
             value={search}
             onChange={handleSearchChange}
           />
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 170 }}
+          <select className="form-select toolbar-select"
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Active + Pending</option>
             <option value="active">Active</option>
@@ -162,14 +174,14 @@ export default function Employees() {
             <option value="inactive">Inactive</option>
             <option value="all">All</option>
           </select>
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 140 }}
+          <select className="form-select toolbar-select"
             value={roleFilter} onChange={handleRoleFilter}>
             <option value="">All Roles</option>
             <option value="administrator">Administrator</option>
             <option value="manager">Manager</option>
             <option value="employee">Employee</option>
           </select>
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 140 }}
+          <select className="form-select toolbar-select"
             value={teamFilter} onChange={handleTeamFilter}>
             <option value="">All Teams</option>
             <option value="none">No Team</option>
@@ -177,6 +189,7 @@ export default function Employees() {
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
           </select>
+          <button className="btn btn-outline toolbar-reset" onClick={handleReset}>Reset</button>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}
@@ -202,7 +215,7 @@ export default function Employees() {
               ) : items.map(emp => (
                 <tr key={emp.id}>
                   <td><code style={{ fontSize: '0.8125rem' }}>{emp.employee_code}</code></td>
-                  <td style={{ fontWeight: 500 }}>{emp.name}</td>
+                  <td style={{ fontWeight: 500 }}>{emp.first_name} {emp.last_name}</td>
                   <td style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)' }}>{emp.email}</td>
                   <td>{emp.team_name ?? '—'}</td>
                   <td>
@@ -238,10 +251,17 @@ export default function Employees() {
             <form onSubmit={handleSave}>
               {error && <div className="error-banner">{error}</div>}
 
-              <div className="form-group">
-                <label className="form-label">Name *</label>
-                <input className="form-input" required value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="form-group">
+                  <label className="form-label">First Name *</label>
+                  <input className="form-input" required value={form.first_name}
+                    onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Last Name *</label>
+                  <input className="form-input" required value={form.last_name}
+                    onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+                </div>
               </div>
 
               <div className="form-group">
@@ -294,7 +314,7 @@ export default function Employees() {
                     <button type="button"
                       className="btn btn-outline"
                       style={{ color: 'var(--color-amber)', borderColor: 'var(--color-amber)' }}
-                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name, action: 'deactivate' })}>
+                      onClick={() => setConfirm({ id: modal.id, name: `${modal.item.first_name} ${modal.item.last_name}`, action: 'deactivate' })}>
                       Deactivate
                     </button>
                   )}
@@ -302,7 +322,7 @@ export default function Employees() {
                     <button type="button"
                       className="btn btn-outline"
                       style={{ color: 'var(--color-green)', borderColor: 'var(--color-green)' }}
-                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name, action: 'reactivate' })}>
+                      onClick={() => setConfirm({ id: modal.id, name: `${modal.item.first_name} ${modal.item.last_name}`, action: 'reactivate' })}>
                       Reactivate
                     </button>
                   )}
@@ -329,8 +349,7 @@ export default function Employees() {
             </h2>
             {confirm.action === 'deactivate' ? (
               <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)' }}>
-                This will block <strong>{confirm.name}</strong> from logging in and creating time entries.
-                Historical records will remain available.
+                This employee has historical records. Deactivation is recommended instead of deletion. Continue?
               </p>
             ) : (
               <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)' }}>

@@ -10,13 +10,17 @@ export default function Profile() {
   const navigate                  = useNavigate();
 
   const [editing, setEditing] = useState(false);
-  const [form,    setForm]    = useState({ name: '', phone: '' });
+  const [form,    setForm]    = useState({ first_name: '', last_name: '', phone: '' });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState('');
   const [success, setSuccess] = useState('');
 
   function startEdit() {
-    setForm({ name: user?.name ?? '', phone: user?.phone ?? '' });
+    setForm({
+      first_name: user?.first_name ?? '',
+      last_name:  user?.last_name  ?? '',
+      phone:      user?.phone      ?? '',
+    });
     setError('');
     setSuccess('');
     setEditing(true);
@@ -34,10 +38,11 @@ export default function Profile() {
     setSuccess('');
     try {
       const data = await api.patch('/api/profile', {
-        name:  form.name.trim(),
-        phone: form.phone || null,
+        first_name: form.first_name.trim(),
+        last_name:  form.last_name.trim(),
+        phone:      form.phone || null,
       });
-      setUser({ ...user, name: data.name, phone: data.phone });
+      setUser({ ...user, first_name: data.first_name, last_name: data.last_name, name: data.name, phone: data.phone });
       setEditing(false);
       setSuccess('Profile updated.');
     } catch (e) {
@@ -51,6 +56,8 @@ export default function Profile() {
     await logout();
     navigate('/login', { replace: true });
   }
+
+  const displayName = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.name : '';
 
   return (
     <AppShell title="Profile">
@@ -74,14 +81,25 @@ export default function Profile() {
           <form onSubmit={handleSave} style={{ maxWidth: 480 }}>
             {error && <div className="error-banner">{error}</div>}
 
-            <div className="form-group">
-              <label className="form-label">Name *</label>
-              <input
-                className="form-input"
-                required
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">First Name *</label>
+                <input
+                  className="form-input"
+                  required
+                  value={form.first_name}
+                  onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Last Name *</label>
+                <input
+                  className="form-input"
+                  required
+                  value={form.last_name}
+                  onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="form-group">
@@ -120,7 +138,7 @@ export default function Profile() {
           <div className="table-wrap" style={{ maxWidth: 480, padding: '1.5rem' }}>
             <div className="form-group">
               <span className="form-label">Name</span>
-              <p style={{ marginTop: '0.25rem' }}>{user?.name}</p>
+              <p style={{ marginTop: '0.25rem' }}>{displayName}</p>
             </div>
             <div className="form-group">
               <span className="form-label">Role</span>

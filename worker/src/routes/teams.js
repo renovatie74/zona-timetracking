@@ -17,7 +17,7 @@ export async function list(request, env) {
 
   const { results } = await env.DB.prepare(
     `SELECT t.id, t.name, t.supervisor_id, t.is_active, t.created_at, t.updated_at,
-            u.name AS supervisor_name
+            (u.first_name || ' ' || u.last_name) AS supervisor_name
      FROM Teams t
      LEFT JOIN Users u ON u.id = t.supervisor_id
      ${whereClause}
@@ -33,7 +33,7 @@ export async function get(request, env) {
 
   const team = await env.DB.prepare(
     `SELECT t.id, t.name, t.supervisor_id, t.is_active, t.created_at, t.updated_at,
-            u.name AS supervisor_name
+            (u.first_name || ' ' || u.last_name) AS supervisor_name
      FROM Teams t
      LEFT JOIN Users u ON u.id = t.supervisor_id
      WHERE t.id = ?`,

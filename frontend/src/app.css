@@ -221,7 +221,8 @@ button {
 .sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: var(--color-navy);
+  background: var(--color-white);
+  border-right: 1px solid var(--color-grey-200);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -232,25 +233,25 @@ button {
 
 .sidebar-logo {
   padding: var(--space-6) var(--space-4) var(--space-4);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--color-grey-200);
 }
 
 .sidebar-logo h2 {
   font-size: 0.9375rem;
   font-weight: 700;
-  color: var(--color-white);
+  color: var(--color-navy);
   letter-spacing: -0.01em;
 }
 
 .sidebar-logo p {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-grey-600);
   margin-top: 2px;
 }
 
 .sidebar-nav {
   flex: 1;
-  padding: var(--space-4) 0;
+  padding: var(--space-3) var(--space-2);
   overflow-y: auto;
 }
 
@@ -258,12 +259,12 @@ button {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 0.625rem var(--space-4);
-  font-size: 0.9rem;
+  padding: 0.5rem var(--space-3);
+  font-size: 0.875rem;
   font-weight: 500;
-  color: rgba(255,255,255,0.65);
+  color: var(--color-grey-600);
   text-decoration: none;
-  border-radius: 0;
+  border-radius: 6px;
   transition: background 0.12s, color 0.12s;
   cursor: pointer;
   border: none;
@@ -273,35 +274,36 @@ button {
 }
 
 .nav-item:hover {
-  background: rgba(255,255,255,0.07);
-  color: var(--color-white);
+  background: var(--color-grey-50);
+  color: var(--color-navy);
   text-decoration: none;
 }
 
 .nav-item.active {
-  background: rgba(249,115,22,0.18);
+  background: #FFF4ED;
   color: var(--color-orange);
+  font-weight: 600;
 }
 
 .nav-item svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  opacity: 0.75;
+  opacity: 0.6;
 }
 
 .nav-item.active svg { opacity: 1; }
 
 .sidebar-footer {
   padding: var(--space-4);
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--color-grey-200);
   font-size: 0.8125rem;
-  color: rgba(255,255,255,0.45);
+  color: var(--color-grey-600);
 }
 
 .sidebar-footer strong {
   display: block;
-  color: rgba(255,255,255,0.75);
+  color: var(--color-navy);
   font-weight: 500;
 }
 
@@ -320,7 +322,8 @@ button {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--color-navy);
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-grey-200);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -330,14 +333,14 @@ button {
   flex: 1;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-white);
+  color: var(--color-navy);
 }
 
 .btn-icon {
   background: none;
   border: none;
   padding: var(--space-1);
-  color: rgba(255,255,255,0.8);
+  color: var(--color-grey-600);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -402,18 +405,19 @@ button {
 
 .toolbar {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin-bottom: var(--space-4);
-  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
 }
 
 .search-input {
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
   padding: 0.5rem var(--space-3);
   border: 1.5px solid var(--color-grey-200);
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-family: inherit;
   color: var(--color-navy);
   background: var(--color-white);
@@ -421,6 +425,23 @@ button {
 }
 
 .search-input:focus { border-color: var(--color-navy); }
+
+/* Compact filter selects inside toolbar — override .form-select width: 100% */
+.toolbar-select {
+  width: auto !important;
+  min-width: 130px;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.toolbar-reset {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  padding: 0.5rem var(--space-3);
+  white-space: nowrap;
+}
 
 /* ── Buttons ───────────────────────────────────────────────────────────────── */
 

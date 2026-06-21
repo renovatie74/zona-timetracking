@@ -20,6 +20,7 @@ import migration08 from '../migrations/0008_users_team_id.sql?raw';
 import migration09 from '../migrations/0009_projects_v2.sql?raw';
 import migration10 from '../migrations/0010_clients.sql?raw';
 import migration11 from '../migrations/0011_projects_client_id.sql?raw';
+import migration12 from '../migrations/0012_employee_name_split.sql?raw';
 
 const env = {
   ...cfEnv,
@@ -68,13 +69,13 @@ async function seedUser(role = 'administrator', overrides = {}) {
 
   const result = await env.DB.prepare(
     `INSERT INTO Users
-       (role_id, employee_number, name, email, password_hash, mobile, is_active,
+       (role_id, employee_number, first_name, last_name, email, password_hash, mobile, is_active,
         invitation_token, invitation_token_expires_at,
         password_reset_token, password_reset_expires_at,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, ?, 1, NULL, NULL, NULL, NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, NULL, ?, 1, NULL, NULL, NULL, NULL, ?, ?)`,
   ).bind(role_id, `E-${String(seq).padStart(3, '0')}`,
-         `Test ${role} ${seq}`, `test${seq}@example.com`,
+         'Test', `${role} ${seq}`, `test${seq}@example.com`,
          overrides.phone ?? null,
          now, now).run();
 
@@ -88,7 +89,7 @@ beforeAll(async () => {
   const migrations = [
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
-    migration10, migration11,
+    migration10, migration11, migration12,
   ];
   for (const sql of migrations) await applyMigration(sql);
 
@@ -199,7 +200,7 @@ describe('Phone validation — Sprint 2.1', () => {
 
   it('TC-PH01: valid Polish E.164 accepted', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'Polish Worker', email: 'polish@example.com',
+      first_name: 'Polish', last_name: 'Worker', email: 'polish@example.com',
       phone: '+48600100200',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
@@ -210,7 +211,7 @@ describe('Phone validation — Sprint 2.1', () => {
 
   it('TC-PH02: valid Dutch E.164 accepted', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'Dutch Worker', email: 'dutch@example.com',
+      first_name: 'Dutch', last_name: 'Worker', email: 'dutch@example.com',
       phone: '+31612345678',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
@@ -221,7 +222,7 @@ describe('Phone validation — Sprint 2.1', () => {
 
   it('TC-PH03: valid UAE E.164 accepted', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'UAE Worker', email: 'uae@example.com',
+      first_name: 'UAE', last_name: 'Worker', email: 'uae@example.com',
       phone: '+971501234567',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
@@ -232,7 +233,7 @@ describe('Phone validation — Sprint 2.1', () => {
 
   it('TC-PH04: invalid phone rejected (no + prefix)', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'Bad Phone', email: 'badphone@example.com',
+      first_name: 'Bad', last_name: 'Phone', email: 'badphone@example.com',
       phone: '48600100200',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
@@ -243,7 +244,7 @@ describe('Phone validation — Sprint 2.1', () => {
 
   it('TC-PH05: phone is optional (null accepted)', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'No Phone', email: 'nophone@example.com',
+      first_name: 'No', last_name: 'Phone', email: 'nophone@example.com',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
     expect(res.status).toBe(201);
@@ -260,11 +261,13 @@ describe('Phone validation — Sprint 2.1', () => {
 describe('Profile update — Sprint 2.1', () => {
 
   it('TC-PR01: user can update their own name', async () => {
-    const req = makeRequest('PATCH', '/api/profile', { name: 'Updated Name' }, admin.cookie);
+    const req = makeRequest('PATCH', '/api/profile', { first_name: 'Updated', last_name: 'Name' }, admin.cookie);
     req.user = { id: admin.id };
     const res = await authRoutes.updateProfile(req, env);
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.first_name).toBe('Updated');
+    expect(body.last_name).toBe('Name');
     expect(body.name).toBe('Updated Name');
   });
 
@@ -286,8 +289,8 @@ describe('Profile update — Sprint 2.1', () => {
     expect(body.error).toMatch(/E\.164/i);
   });
 
-  it('TC-PR04: empty name rejected in profile update', async () => {
-    const req = makeRequest('PATCH', '/api/profile', { name: '' }, admin.cookie);
+  it('TC-PR04: empty first_name rejected in profile update', async () => {
+    const req = makeRequest('PATCH', '/api/profile', { first_name: '' }, admin.cookie);
     req.user = { id: admin.id };
     const res = await authRoutes.updateProfile(req, env);
     expect(res.status).toBe(400);
@@ -303,7 +306,7 @@ describe('Profile update — Sprint 2.1', () => {
   });
 
   it('TC-PR06: unauthenticated profile update returns 401', async () => {
-    const req = makeRequest('PATCH', '/api/profile', { name: 'Hacker' }, '');
+    const req = makeRequest('PATCH', '/api/profile', { first_name: 'Hacker' }, '');
     const res = await authRoutes.updateProfile(req, env);
     expect(res.status).toBe(401);
   });

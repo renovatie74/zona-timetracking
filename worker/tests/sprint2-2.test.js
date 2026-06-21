@@ -21,6 +21,7 @@ import migration08 from '../migrations/0008_users_team_id.sql?raw';
 import migration09 from '../migrations/0009_projects_v2.sql?raw';
 import migration10 from '../migrations/0010_clients.sql?raw';
 import migration11 from '../migrations/0011_projects_client_id.sql?raw';
+import migration12 from '../migrations/0012_employee_name_split.sql?raw';
 
 const env = {
   ...cfEnv,
@@ -71,13 +72,14 @@ async function seedUser(role = 'administrator', overrides = {}) {
   const passwordHash = 'password_hash' in overrides ? overrides.password_hash : 'hash';
   const result = await env.DB.prepare(
     `INSERT INTO Users
-       (role_id, employee_number, name, email, password_hash, mobile, is_active,
+       (role_id, employee_number, first_name, last_name, email, password_hash, mobile, is_active,
         invitation_token, invitation_token_expires_at,
         password_reset_token, password_reset_expires_at,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?)`,
   ).bind(role_id, `E-${String(seq).padStart(3, '0')}`,
-         overrides.name ?? `Test ${role} ${seq}`,
+         overrides.first_name ?? 'Test',
+         overrides.last_name ?? `${role} ${seq}`,
          overrides.email ?? `test${seq}@example.com`,
          passwordHash,
          overrides.phone ?? null,
@@ -105,7 +107,7 @@ beforeAll(async () => {
   const migrations = [
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
-    migration10, migration11,
+    migration10, migration11, migration12,
   ];
   for (const sql of migrations) await applyMigration(sql);
 

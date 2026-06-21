@@ -18,7 +18,8 @@ export async function login(request, env) {
   const { email, password } = await request.json();
 
   const user = await env.DB.prepare(
-    `SELECT u.id, u.password_hash, u.is_active, u.name, r.name AS role
+    `SELECT u.id, u.password_hash, u.is_active, u.first_name, u.last_name,
+            (u.first_name || ' ' || u.last_name) AS name, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.email = ?`,
   ).bind(email).first();
 
@@ -37,7 +38,7 @@ export async function login(request, env) {
   });
 
   return setJwtCookie(
-    Response.json({ id: user.id, role: user.role, name: user.name }),
+    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name }),
     token,
   );
 }
@@ -59,14 +60,16 @@ export async function me(request, env) {
   if (authResult) return authResult;
 
   const user = await env.DB.prepare(
-    `SELECT u.id, u.name, u.email, u.mobile, r.name AS role
+    `SELECT u.id, u.first_name, u.last_name, (u.first_name || ' ' || u.last_name) AS name,
+            u.email, u.mobile, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
   ).bind(request.user.id).first();
 
   if (!user) return Response.json({ error: 'User not found' }, { status: 404 });
 
   return Response.json({
-    id: user.id, role: user.role, name: user.name, email: user.email, phone: user.mobile,
+    id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name,
+    name: user.name, email: user.email, phone: user.mobile,
   });
 }
 
@@ -76,8 +79,11 @@ export async function updateProfile(request, env) {
 
   const body = await request.json();
 
-  if (body.name !== undefined && !body.name?.trim()) {
-    return Response.json({ error: 'Name cannot be empty' }, { status: 400 });
+  if (body.first_name !== undefined && !body.first_name?.trim()) {
+    return Response.json({ error: 'First name cannot be empty' }, { status: 400 });
+  }
+  if (body.last_name !== undefined && !body.last_name?.trim()) {
+    return Response.json({ error: 'Last name cannot be empty' }, { status: 400 });
   }
   if (body.phone !== undefined && body.phone !== null && body.phone !== '') {
     if (!/^\+\d{7,15}$/.test(body.phone)) {
@@ -88,8 +94,9 @@ export async function updateProfile(request, env) {
   const updates = [];
   const params  = [];
 
-  if (body.name  !== undefined) { updates.push('name = ?');   params.push(body.name.trim()); }
-  if (body.phone !== undefined) { updates.push('mobile = ?'); params.push(body.phone || null); }
+  if (body.first_name !== undefined) { updates.push('first_name = ?'); params.push(body.first_name.trim()); }
+  if (body.last_name  !== undefined) { updates.push('last_name = ?');  params.push(body.last_name.trim()); }
+  if (body.phone      !== undefined) { updates.push('mobile = ?');     params.push(body.phone || null); }
 
   if (updates.length === 0) {
     return Response.json({ error: 'No fields to update' }, { status: 400 });
@@ -107,12 +114,14 @@ export async function updateProfile(request, env) {
   });
 
   const user = await env.DB.prepare(
-    `SELECT u.id, u.name, u.email, u.mobile, r.name AS role
+    `SELECT u.id, u.first_name, u.last_name, (u.first_name || ' ' || u.last_name) AS name,
+            u.email, u.mobile, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
   ).bind(request.user.id).first();
 
   return Response.json({
-    id: user.id, role: user.role, name: user.name, email: user.email, phone: user.mobile,
+    id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name,
+    name: user.name, email: user.email, phone: user.mobile,
   });
 }
 
@@ -120,7 +129,9 @@ export async function activate(request, env) {
   const { token, password } = await request.json();
 
   const user = await env.DB.prepare(
-    `SELECT u.id, u.name, u.invitation_token_expires_at, r.name AS role
+    `SELECT u.id, u.first_name, u.last_name,
+            (u.first_name || ' ' || u.last_name) AS name,
+            u.invitation_token_expires_at, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id
      WHERE u.invitation_token = ? AND u.is_active = 0`,
   ).bind(token).first();
@@ -146,7 +157,7 @@ export async function activate(request, env) {
 
   const jwtToken = await signJwt(jwtPayload(user.id, user.role), env.JWT_SECRET);
   return setJwtCookie(
-    Response.json({ id: user.id, role: user.role, name: user.name }),
+    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name }),
     jwtToken,
   );
 }
@@ -155,7 +166,7 @@ export async function forgotPassword(request, env, ctx) {
   const { email } = await request.json();
 
   const user = await env.DB.prepare(
-    `SELECT id, name, email FROM Users WHERE email = ? AND is_active = 1`,
+    `SELECT id, (first_name || ' ' || last_name) AS name, email FROM Users WHERE email = ? AND is_active = 1`,
   ).bind(email).first();
 
   if (user) {

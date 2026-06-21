@@ -27,6 +27,12 @@ import migration03 from '../migrations/0003_time_entries.sql?raw';
 import migration04 from '../migrations/0004_notes.sql?raw';
 import migration05 from '../migrations/0005_recent.sql?raw';
 import migration06 from '../migrations/0006_audit.sql?raw';
+import migration07 from '../migrations/0007_teams.sql?raw';
+import migration08 from '../migrations/0008_users_team_id.sql?raw';
+import migration09 from '../migrations/0009_projects_v2.sql?raw';
+import migration10 from '../migrations/0010_clients.sql?raw';
+import migration11 from '../migrations/0011_projects_client_id.sql?raw';
+import migration12 from '../migrations/0012_employee_name_split.sql?raw';
 
 import * as authRoutes  from '../src/routes/auth.js';
 import { hashPassword } from '../src/lib/password.js';
@@ -58,7 +64,8 @@ async function seedUser(overrides = {}) {
   const defaults = {
     role_id:                     1,           // 'employee'
     employee_number:             `E-${String(seq).padStart(3, '0')}`,
-    name:                        `Test User ${seq}`,
+    first_name:                  'Test',
+    last_name:                   `User ${seq}`,
     email:                       `user${seq}@test.example`,
     password_hash:               hash,
     is_active:                   1,
@@ -70,16 +77,17 @@ async function seedUser(overrides = {}) {
     updated_at:                  now,
   };
   const u = { ...defaults, ...overrides };
+  u.name = `${u.first_name} ${u.last_name}`;
 
   const result = await env.DB.prepare(
     `INSERT INTO Users
-       (role_id, employee_number, name, email, password_hash, is_active,
+       (role_id, employee_number, first_name, last_name, email, password_hash, is_active,
         invitation_token, invitation_token_expires_at,
         password_reset_token, password_reset_expires_at,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(
-    u.role_id, u.employee_number, u.name, u.email,
+    u.role_id, u.employee_number, u.first_name, u.last_name, u.email,
     u.password_hash, u.is_active,
     u.invitation_token, u.invitation_token_expires_at,
     u.password_reset_token, u.password_reset_expires_at,
@@ -105,6 +113,7 @@ async function applyMigration(sql) {
 
 const MIGRATIONS = [
   migration01, migration02, migration03, migration04, migration05, migration06,
+  migration07, migration08, migration09, migration10, migration11, migration12,
 ];
 
 beforeAll(async () => {
@@ -131,6 +140,8 @@ describe('Auth — Sprint 1', () => {
     const body = await res.json();
     expect(body.id).toBe(user.id);
     expect(body.role).toBe('administrator');
+    expect(body.first_name).toBe(user.first_name);
+    expect(body.last_name).toBe(user.last_name);
     expect(body.name).toBe(user.name);
     expect(res.headers.get('Set-Cookie')).toMatch(/^jwt=/);
     expect(res.headers.get('Set-Cookie')).toMatch(/HttpOnly/);

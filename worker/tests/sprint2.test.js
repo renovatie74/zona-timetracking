@@ -31,6 +31,7 @@ import migration08 from '../migrations/0008_users_team_id.sql?raw';
 import migration09 from '../migrations/0009_projects_v2.sql?raw';
 import migration10 from '../migrations/0010_clients.sql?raw';
 import migration11 from '../migrations/0011_projects_client_id.sql?raw';
+import migration12 from '../migrations/0012_employee_name_split.sql?raw';
 
 async function applyMigration(sql) {
   const statements = sql
@@ -74,13 +75,13 @@ async function seedUser(role = 'administrator', overrides = {}) {
 
   const result = await env.DB.prepare(
     `INSERT INTO Users
-       (role_id, employee_number, name, email, password_hash, is_active,
+       (role_id, employee_number, first_name, last_name, email, password_hash, is_active,
         invitation_token, invitation_token_expires_at,
         password_reset_token, password_reset_expires_at,
         created_at, updated_at)
-     VALUES (?, ?, ?, ?, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, NULL, 1, NULL, NULL, NULL, NULL, ?, ?)`,
   ).bind(role_id, `E-${String(seq).padStart(3, '0')}`,
-         `Test ${role} ${seq}`, `test${seq}@example.com`,
+         `Test`, `${role} ${seq}`, `test${seq}@example.com`,
          now, now).run();
 
   const id = result.meta.last_row_id;
@@ -95,7 +96,7 @@ beforeAll(async () => {
   const migrations = [
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
-    migration10, migration11,
+    migration10, migration11, migration12,
   ];
   for (const sql of migrations) await applyMigration(sql);
 
@@ -210,12 +211,14 @@ describe('Employees — Sprint 2', () => {
 
   it('TC-E01: admin can create an employee (generates employee_code)', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'Jane Worker', email: 'jane@example.com', role: 'employee',
+      first_name: 'Jane', last_name: 'Worker', email: 'jane@example.com', role: 'employee',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.employee_code).toMatch(/^E-\d{3}$/);
+    expect(body.data.first_name).toBe('Jane');
+    expect(body.data.last_name).toBe('Worker');
     expect(body.data.name).toBe('Jane Worker');
     createdEmployeeId = body.data.id;
   });
@@ -251,17 +254,18 @@ describe('Employees — Sprint 2', () => {
 
   it('TC-E06: admin can update an employee', async () => {
     const req = makeRequest('PUT', `/api/employees/${createdEmployeeId}`,
-      { name: 'Jane Worker Updated' }, admin.cookie);
+      { first_name: 'Jane', last_name: 'Worker Updated' }, admin.cookie);
     req.params = { id: String(createdEmployeeId) };
     const res = await employeeRoutes.update(req, env);
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.data.last_name).toBe('Worker Updated');
     expect(body.data.name).toBe('Jane Worker Updated');
   });
 
   it('TC-E07: duplicate email returns 409', async () => {
     const req = makeRequest('POST', '/api/employees', {
-      name: 'Duplicate', email: 'jane@example.com',
+      first_name: 'Duplicate', last_name: 'User', email: 'jane@example.com',
     }, admin.cookie);
     const res = await employeeRoutes.create(req, env, { waitUntil: () => {} });
     expect(res.status).toBe(409);

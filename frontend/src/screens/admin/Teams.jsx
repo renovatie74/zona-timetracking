@@ -128,14 +128,17 @@ export default function Teams() {
             className="search-input"
             placeholder="Search teams…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); load(e.target.value, statusFilter); }}
           />
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 130 }}
+          <select className="form-select toolbar-select"
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Active</option>
             <option value="inactive">Inactive</option>
             <option value="all">All</option>
           </select>
+          <button className="btn btn-outline toolbar-reset" onClick={() => {
+            setSearch(''); setStatusFilter(''); load('', '');
+          }}>Reset</button>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}

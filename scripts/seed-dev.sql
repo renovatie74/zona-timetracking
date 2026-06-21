@@ -20,14 +20,14 @@
 
 -- ── Users ─────────────────────────────────────────────────────────────────────
 INSERT OR IGNORE INTO Users
-  (id, role_id, employee_number, name, email, mobile, is_active, created_at, updated_at)
+  (id, role_id, employee_number, first_name, last_name, email, mobile, is_active, created_at, updated_at)
 VALUES
-  (1, 3, 'E-001', 'Corina Admin',   'corina@zonaproperties.ae', '+971501234567', 0, datetime('now'), datetime('now')),
-  (2, 2, 'E-002', 'Pawel Manager',  'pawel@zonaproperties.ae',  '+971507654321', 0, datetime('now'), datetime('now')),
-  (3, 1, 'E-003', 'Kacper W.',      'kacper@example.ae',        '+971509876543', 0, datetime('now'), datetime('now')),
-  (4, 1, 'E-004', 'Marcin T.',      'marcin@example.ae',        '+971502345678', 0, datetime('now'), datetime('now')),
-  (5, 1, 'E-005', 'Ahmed R.',       'ahmed@example.ae',         '+971503456789', 0, datetime('now'), datetime('now')),
-  (6, 1, 'E-006', 'James O.',       'james@example.ae',         '+971504567890', 0, datetime('now'), datetime('now'));
+  (1, 3, 'E-001', 'Corina',  'Admin',   'corina@zonaproperties.ae', '+971501234567', 0, datetime('now'), datetime('now')),
+  (2, 2, 'E-002', 'Pawel',   'Manager', 'pawel@zonaproperties.ae',  '+971507654321', 0, datetime('now'), datetime('now')),
+  (3, 1, 'E-003', 'Kacper',  'W.',      'kacper@example.ae',        '+971509876543', 0, datetime('now'), datetime('now')),
+  (4, 1, 'E-004', 'Marcin',  'T.',      'marcin@example.ae',        '+971502345678', 0, datetime('now'), datetime('now')),
+  (5, 1, 'E-005', 'Ahmed',   'R.',      'ahmed@example.ae',         '+971503456789', 0, datetime('now'), datetime('now')),
+  (6, 1, 'E-006', 'James',   'O.',      'james@example.ae',         '+971504567890', 0, datetime('now'), datetime('now'));
 
 -- Advance EmployeeCodeSequence past the seeded users so the next generated code is E-007
 UPDATE EmployeeCodeSequence SET next_seq = 7 WHERE id = 1;

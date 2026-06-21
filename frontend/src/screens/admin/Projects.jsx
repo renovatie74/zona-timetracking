@@ -145,7 +145,7 @@ export default function Projects() {
             value={search}
             onChange={handleSearchChange}
           />
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 170 }}
+          <select className="form-select toolbar-select"
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Planning + Active</option>
             <option value="planning">Planning</option>
@@ -154,13 +154,16 @@ export default function Projects() {
             <option value="cancelled">Cancelled</option>
             <option value="all">All</option>
           </select>
-          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 160 }}
+          <select className="form-select toolbar-select"
             value={clientFilter} onChange={handleClientFilter}>
             <option value="">All Clients</option>
             {clients.map(c => (
               <option key={c.id} value={c.id}>[{c.client_code}] {c.name}</option>
             ))}
           </select>
+          <button className="btn btn-outline toolbar-reset" onClick={() => {
+            setSearch(''); setStatusFilter(''); setClientFilter(''); load('', '', '');
+          }}>Reset</button>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}
