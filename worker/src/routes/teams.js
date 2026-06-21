@@ -8,11 +8,19 @@ export async function list(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
   if (guard) return guard;
 
+  const url    = new URL(request.url);
+  const status = url.searchParams.get('status')?.trim() ?? '';
+
+  let whereClause = 'WHERE t.is_active = 1';
+  if (status === 'inactive') whereClause = 'WHERE t.is_active = 0';
+  else if (status === 'all') whereClause = '';
+
   const { results } = await env.DB.prepare(
     `SELECT t.id, t.name, t.supervisor_id, t.is_active, t.created_at, t.updated_at,
             u.name AS supervisor_name
      FROM Teams t
      LEFT JOIN Users u ON u.id = t.supervisor_id
+     ${whereClause}
      ORDER BY t.name`,
   ).all();
 

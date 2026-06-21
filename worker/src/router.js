@@ -35,11 +35,12 @@ router.put(   '/api/teams/:id', teamRoutes.update);
 router.delete('/api/teams/:id', teamRoutes.remove);
 
 // ── Employee routes (Sprint 2) ────────────────────────────────────────────────
-router.get(   '/api/employees',     employeeRoutes.list);
-router.get(   '/api/employees/:id', employeeRoutes.get);
-router.post(  '/api/employees',     employeeRoutes.create);
-router.put(   '/api/employees/:id', employeeRoutes.update);
-router.delete('/api/employees/:id', employeeRoutes.remove);
+router.get(   '/api/employees',                 employeeRoutes.list);
+router.get(   '/api/employees/:id',             employeeRoutes.get);
+router.post(  '/api/employees',                 employeeRoutes.create);
+router.post(  '/api/employees/:id/reactivate',  employeeRoutes.reactivate);
+router.put(   '/api/employees/:id',             employeeRoutes.update);
+router.delete('/api/employees/:id',             employeeRoutes.remove);
 
 // ── Client routes (Sprint 2.1) ────────────────────────────────────────────────
 router.get(   '/api/clients',     clientRoutes.list);

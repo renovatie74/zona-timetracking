@@ -360,7 +360,7 @@ describe('Projects — Sprint 2', () => {
   });
 
   it('TC-P08: search projects by name', async () => {
-    const req = makeRequest('GET', '/api/projects?search=Villa', null, admin.cookie);
+    const req = makeRequest('GET', '/api/projects?search=Villa&status=all', null, admin.cookie);
     const res = await projectRoutes.list(req, env);
     expect(res.status).toBe(200);
     const body = await res.json();

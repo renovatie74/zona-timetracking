@@ -11,29 +11,37 @@ export default function Teams() {
   const navigate   = useNavigate();
   const isAdmin    = user?.role === 'administrator';
 
-  const [items,     setItems]     = useState([]);
-  const [managers,  setManagers]  = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
-  const [modal,     setModal]     = useState(null);
-  const [confirm,   setConfirm]   = useState(null);
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState('');
-  const [form,      setForm]      = useState(EMPTY);
+  const [items,        setItems]        = useState([]);
+  const [managers,     setManagers]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [statusFilter, setStatusFilter] = useState('');   // '' = active (default)
+  const [modal,        setModal]        = useState(null);
+  const [confirm,      setConfirm]      = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+  const [form,         setForm]         = useState(EMPTY);
 
   useEffect(() => {
-    load('');
-    // Load supervisors/managers to populate the dropdown
-    api.get('/api/employees')
-      .then(data => setManagers(data.filter(e => ['manager', 'administrator'].includes(e.role))))
+    load('', '');
+    api.get('/api/employees?role=manager&status=active')
+      .then(data => {
+        // Also load admins
+        return api.get('/api/employees?role=administrator&status=active')
+          .then(admins => setManagers([...data, ...admins]))
+          .catch(() => setManagers(data));
+      })
       .catch(() => {});
   }, []);  // eslint-disable-line
 
-  async function load() {
+  async function load(q, sf) {
     setLoading(true);
     setError('');
     try {
-      const data = await api.get('/api/teams');
+      const params = new URLSearchParams();
+      if (sf) params.set('status', sf);
+      const qs = params.toString();
+      const data = await api.get('/api/teams' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
@@ -41,6 +49,12 @@ export default function Teams() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleStatusFilter(e) {
+    const sf = e.target.value;
+    setStatusFilter(sf);
+    load(search, sf);
   }
 
   const filtered = search
@@ -77,7 +91,7 @@ export default function Teams() {
         await api.put(`/api/teams/${modal.id}`, body);
       }
       setModal(null);
-      load();
+      load(search, statusFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -91,7 +105,7 @@ export default function Teams() {
     try {
       await api.delete(`/api/teams/${confirm.id}`);
       setConfirm(null);
-      load();
+      load(search, statusFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -116,6 +130,12 @@ export default function Teams() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 130 }}
+            value={statusFilter} onChange={handleStatusFilter}>
+            <option value="">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
+          </select>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}

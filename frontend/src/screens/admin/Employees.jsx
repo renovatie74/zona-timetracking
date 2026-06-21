@@ -8,36 +8,40 @@ import PhoneInput              from '../../components/PhoneInput.jsx';
 const ROLES = ['employee', 'manager', 'administrator'];
 const EMPTY = { name: '', email: '', phone: '', role: 'employee', team_id: '' };
 
-function derivedStatus(emp) {
-  if (!emp.is_active) return 'inactive';
-  return 'active';
-}
-
 export default function Employees() {
-  const { user }   = useAuth();
-  const navigate   = useNavigate();
-  const isAdmin    = user?.role === 'administrator';
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin  = user?.role === 'administrator';
 
-  const [items,   setItems]   = useState([]);
-  const [teams,   setTeams]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [modal,   setModal]   = useState(null);
-  const [confirm, setConfirm] = useState(null);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
-  const [form,    setForm]    = useState(EMPTY);
+  const [items,        setItems]        = useState([]);
+  const [teams,        setTeams]        = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [roleFilter,   setRoleFilter]   = useState('');
+  const [teamFilter,   setTeamFilter]   = useState('');
+  const [modal,        setModal]        = useState(null);
+  const [confirm,      setConfirm]      = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+  const [form,         setForm]         = useState(EMPTY);
 
   useEffect(() => {
-    load();
-    api.get('/api/teams').then(setTeams).catch(() => {});
+    load('', '', '', '');
+    api.get('/api/teams?status=all').then(setTeams).catch(() => {});
   }, []);  // eslint-disable-line
 
-  async function load(q = '') {
+  async function load(q, sf, rf, tf) {
     setLoading(true);
     setError('');
     try {
-      const data = await api.get('/api/employees' + (q ? `?search=${encodeURIComponent(q)}` : ''));
+      const params = new URLSearchParams();
+      if (q)  params.set('search', q);
+      if (sf) params.set('status', sf);
+      if (rf) params.set('role', rf);
+      if (tf) params.set('team', tf);
+      const qs = params.toString();
+      const data = await api.get('/api/employees' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
@@ -50,7 +54,25 @@ export default function Employees() {
   function handleSearchChange(e) {
     const q = e.target.value;
     setSearch(q);
-    load(q);
+    load(q, statusFilter, roleFilter, teamFilter);
+  }
+
+  function handleStatusFilter(e) {
+    const sf = e.target.value;
+    setStatusFilter(sf);
+    load(search, sf, roleFilter, teamFilter);
+  }
+
+  function handleRoleFilter(e) {
+    const rf = e.target.value;
+    setRoleFilter(rf);
+    load(search, statusFilter, rf, teamFilter);
+  }
+
+  function handleTeamFilter(e) {
+    const tf = e.target.value;
+    setTeamFilter(tf);
+    load(search, statusFilter, roleFilter, tf);
   }
 
   function openCreate() {
@@ -61,14 +83,14 @@ export default function Employees() {
 
   function openEdit(item) {
     setForm({
-      name:    item.name    ?? '',
-      email:   item.email   ?? '',
-      phone:   item.phone   ?? '',
-      role:    item.role    ?? 'employee',
-      team_id: item.team_id ?? '',
+      name:    item.name             ?? '',
+      email:   item.email            ?? '',
+      phone:   item.phone            ?? '',
+      role:    item.role             ?? 'employee',
+      team_id: item.team_id != null  ? String(item.team_id) : '',
     });
     setError('');
-    setModal({ mode: 'edit', id: item.id });
+    setModal({ mode: 'edit', id: item.id, item });
   }
 
   async function handleSave(e) {
@@ -87,7 +109,7 @@ export default function Employees() {
         await api.put(`/api/employees/${modal.id}`, body);
       }
       setModal(null);
-      load(search);
+      load(search, statusFilter, roleFilter, teamFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -95,19 +117,25 @@ export default function Employees() {
     }
   }
 
-  async function handleDeactivate() {
+  async function handleLifecycle() {
     if (!confirm) return;
     setSaving(true);
     try {
-      await api.delete(`/api/employees/${confirm.id}`);
+      if (confirm.action === 'deactivate') {
+        await api.delete(`/api/employees/${confirm.id}`);
+      } else {
+        await api.post(`/api/employees/${confirm.id}/reactivate`, {});
+      }
       setConfirm(null);
-      load(search);
+      setModal(null);
+      load(search, statusFilter, roleFilter, teamFilter);
     } catch (e) {
       setError(e.message);
-    } finally {
       setSaving(false);
     }
   }
+
+  const colSpan = isAdmin ? 7 : 6;
 
   return (
     <AppShell title="Employees">
@@ -126,6 +154,29 @@ export default function Employees() {
             value={search}
             onChange={handleSearchChange}
           />
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 170 }}
+            value={statusFilter} onChange={handleStatusFilter}>
+            <option value="">Active + Pending</option>
+            <option value="active">Active</option>
+            <option value="pending">Pending Activation</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
+          </select>
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 140 }}
+            value={roleFilter} onChange={handleRoleFilter}>
+            <option value="">All Roles</option>
+            <option value="administrator">Administrator</option>
+            <option value="manager">Manager</option>
+            <option value="employee">Employee</option>
+          </select>
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 140 }}
+            value={teamFilter} onChange={handleTeamFilter}>
+            <option value="">All Teams</option>
+            <option value="none">No Team</option>
+            {teams.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}
@@ -145,9 +196,9 @@ export default function Employees() {
             </thead>
             <tbody>
               {loading ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 7 : 6}>Loading…</td></tr>
+                <tr className="empty-row"><td colSpan={colSpan}>Loading…</td></tr>
               ) : items.length === 0 ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 7 : 6}>No employees found.</td></tr>
+                <tr className="empty-row"><td colSpan={colSpan}>No employees found.</td></tr>
               ) : items.map(emp => (
                 <tr key={emp.id}>
                   <td><code style={{ fontSize: '0.8125rem' }}>{emp.employee_code}</code></td>
@@ -155,28 +206,19 @@ export default function Employees() {
                   <td style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)' }}>{emp.email}</td>
                   <td>{emp.team_name ?? '—'}</td>
                   <td>
-                    <span className="badge badge-planning"
-                      style={{ textTransform: 'capitalize' }}>
+                    <span className="badge badge-planning" style={{ textTransform: 'capitalize' }}>
                       {emp.role}
                     </span>
                   </td>
                   <td>
-                    {derivedStatus(emp) === 'inactive'
-                      ? <span className="badge badge-inactive">Inactive</span>
-                      : emp.is_active
-                        ? <span className="badge badge-active">Active</span>
-                        : <span className="badge badge-pending">Pending</span>}
+                    {emp.status === 'active'   && <span className="badge badge-active">Active</span>}
+                    {emp.status === 'pending'  && <span className="badge badge-pending">Pending Activation</span>}
+                    {emp.status === 'inactive' && <span className="badge badge-inactive">Inactive</span>}
                   </td>
                   {isAdmin && (
                     <td>
                       <div className="td-actions">
                         <button className="btn-ghost" onClick={() => openEdit(emp)}>Edit</button>
-                        {emp.is_active !== 0 && (
-                          <button className="btn-ghost" style={{ color: 'var(--color-amber)' }}
-                            onClick={() => setConfirm({ id: emp.id, name: emp.name })}>
-                            Deactivate
-                          </button>
-                        )}
                       </div>
                     </td>
                   )}
@@ -240,19 +282,39 @@ export default function Employees() {
                 <select className="form-select" value={form.team_id}
                   onChange={e => setForm(f => ({ ...f, team_id: e.target.value }))}>
                   <option value="">— No team —</option>
-                  {teams.map(t => (
+                  {teams.filter(t => t.is_active).map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : modal.mode === 'create' ? 'Send Invitation' : 'Save'}
-                </button>
+              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  {modal.mode === 'edit' && modal.item?.status !== 'inactive' && (
+                    <button type="button"
+                      className="btn btn-outline"
+                      style={{ color: 'var(--color-amber)', borderColor: 'var(--color-amber)' }}
+                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name, action: 'deactivate' })}>
+                      Deactivate
+                    </button>
+                  )}
+                  {modal.mode === 'edit' && modal.item?.status === 'inactive' && (
+                    <button type="button"
+                      className="btn btn-outline"
+                      style={{ color: 'var(--color-green)', borderColor: 'var(--color-green)' }}
+                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name, action: 'reactivate' })}>
+                      Reactivate
+                    </button>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-solid" disabled={saving}>
+                    {saving ? 'Saving…' : modal.mode === 'create' ? 'Send Invitation' : 'Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -261,18 +323,29 @@ export default function Employees() {
 
       {confirm && (
         <div className="modal-backdrop" onClick={() => setConfirm(null)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Deactivate employee?</h2>
-            <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)', marginBottom: '0.5rem' }}>
-              <strong>{confirm.name}</strong> will be marked inactive and will no longer be able to log in.
-            </p>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)' }}>
-              All historical records (time entries, project notes) are preserved.
-            </p>
+          <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">
+              {confirm.action === 'deactivate' ? 'Deactivate employee?' : 'Reactivate employee?'}
+            </h2>
+            {confirm.action === 'deactivate' ? (
+              <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)' }}>
+                This will block <strong>{confirm.name}</strong> from logging in and creating time entries.
+                Historical records will remain available.
+              </p>
+            ) : (
+              <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)' }}>
+                This will allow <strong>{confirm.name}</strong> to log in and use the system again.
+              </p>
+            )}
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
-              <button className="btn btn-danger" disabled={saving} onClick={handleDeactivate}>
-                {saving ? 'Deactivating…' : 'Deactivate'}
+              <button
+                className={confirm.action === 'deactivate' ? 'btn btn-danger' : 'btn btn-solid'}
+                disabled={saving}
+                onClick={handleLifecycle}>
+                {saving
+                  ? (confirm.action === 'deactivate' ? 'Deactivating…' : 'Reactivating…')
+                  : (confirm.action === 'deactivate' ? 'Deactivate' : 'Reactivate')}
               </button>
             </div>
           </div>

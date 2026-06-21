@@ -11,9 +11,19 @@ export async function list(request, env) {
 
   const url    = new URL(request.url);
   const search = url.searchParams.get('search')?.trim() ?? '';
+  const status = url.searchParams.get('status')?.trim() ?? '';
 
-  const conditions = ['is_active = 1'];
+  const conditions = [];
   const params     = [];
+
+  // Status filter — default (no param) = active only
+  if (status === 'inactive') {
+    conditions.push('is_active = 0');
+  } else if (status === 'all') {
+    // no condition
+  } else {
+    conditions.push('is_active = 1');
+  }
 
   if (search) {
     const like = `%${search}%`;
@@ -21,10 +31,10 @@ export async function list(request, env) {
     params.push(like, like, like);
   }
 
-  const where = conditions.join(' AND ');
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const stmt  = env.DB.prepare(
     `SELECT id, client_code, name, contact_person, phone, email, notes, is_active, created_at, updated_at
-     FROM Clients WHERE ${where} ORDER BY client_code`,
+     FROM Clients ${where} ORDER BY client_code`,
   );
 
   const { results } = await (params.length ? stmt.bind(...params) : stmt).all();

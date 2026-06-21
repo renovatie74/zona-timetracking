@@ -17,26 +17,33 @@ export default function Projects() {
   const navigate   = useNavigate();
   const isAdmin    = user?.role === 'administrator';
 
-  const [items,   setItems]   = useState([]);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [modal,   setModal]   = useState(null);
-  const [confirm, setConfirm] = useState(null);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
-  const [form,    setForm]    = useState(EMPTY);
+  const [items,        setItems]        = useState([]);
+  const [clients,      setClients]      = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [statusFilter, setStatusFilter] = useState('');   // '' = planning+active (default)
+  const [clientFilter, setClientFilter] = useState('');
+  const [modal,        setModal]        = useState(null);
+  const [confirm,      setConfirm]      = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+  const [form,         setForm]         = useState(EMPTY);
 
   useEffect(() => {
-    load();
+    load('', '', '');
     api.get('/api/clients').then(setClients).catch(() => {});
   }, []);  // eslint-disable-line
 
-  async function load(q = '') {
+  async function load(q, sf, cf) {
     setLoading(true);
     setError('');
     try {
-      const data = await api.get('/api/projects' + (q ? `?search=${encodeURIComponent(q)}` : ''));
+      const params = new URLSearchParams();
+      if (q)  params.set('search', q);
+      if (sf) params.set('status', sf);
+      if (cf) params.set('client_id', cf);
+      const qs = params.toString();
+      const data = await api.get('/api/projects' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
@@ -49,7 +56,19 @@ export default function Projects() {
   function handleSearchChange(e) {
     const q = e.target.value;
     setSearch(q);
-    load(q);
+    load(q, statusFilter, clientFilter);
+  }
+
+  function handleStatusFilter(e) {
+    const sf = e.target.value;
+    setStatusFilter(sf);
+    load(search, sf, clientFilter);
+  }
+
+  function handleClientFilter(e) {
+    const cf = e.target.value;
+    setClientFilter(cf);
+    load(search, statusFilter, cf);
   }
 
   function openCreate() {
@@ -87,7 +106,7 @@ export default function Projects() {
         await api.put(`/api/projects/${modal.id}`, body);
       }
       setModal(null);
-      load(search);
+      load(search, statusFilter, clientFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -101,7 +120,7 @@ export default function Projects() {
     try {
       await api.delete(`/api/projects/${confirm.id}`);
       setConfirm(null);
-      load(search);
+      load(search, statusFilter, clientFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -126,6 +145,22 @@ export default function Projects() {
             value={search}
             onChange={handleSearchChange}
           />
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 170 }}
+            value={statusFilter} onChange={handleStatusFilter}>
+            <option value="">Planning + Active</option>
+            <option value="planning">Planning</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="all">All</option>
+          </select>
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 160 }}
+            value={clientFilter} onChange={handleClientFilter}>
+            <option value="">All Clients</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>[{c.client_code}] {c.name}</option>
+            ))}
+          </select>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}

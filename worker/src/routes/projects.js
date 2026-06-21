@@ -17,21 +17,34 @@ export async function list(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
   if (guard) return guard;
 
-  const url    = new URL(request.url);
-  const search = url.searchParams.get('search')?.trim() ?? '';
-  const status = url.searchParams.get('status')?.trim() ?? '';
+  const url       = new URL(request.url);
+  const search    = url.searchParams.get('search')?.trim()    ?? '';
+  const status    = url.searchParams.get('status')?.trim()    ?? '';
+  const client_id = url.searchParams.get('client_id')?.trim() ?? '';
 
   const conditions = ['p.is_active = 1'];
   const params     = [];
+
+  // Status filter — default (no param) = planning + active
+  if (status === 'all') {
+    // no status condition, show all active projects regardless of workflow status
+  } else if (status && VALID_STATUSES.includes(status)) {
+    conditions.push('p.status = ?');
+    params.push(status);
+  } else {
+    // default: planning + active only
+    conditions.push("p.status IN ('planning', 'active')");
+  }
+
+  if (client_id) {
+    conditions.push('p.client_id = ?');
+    params.push(Number(client_id));
+  }
 
   if (search) {
     conditions.push('(p.name LIKE ? OR p.project_code LIKE ? OR c.name LIKE ? OR p.location LIKE ?)');
     const like = `%${search}%`;
     params.push(like, like, like, like);
-  }
-  if (status && VALID_STATUSES.includes(status)) {
-    conditions.push('p.status = ?');
-    params.push(status);
   }
 
   const where = conditions.join(' AND ');

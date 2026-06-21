@@ -12,22 +12,27 @@ export default function Clients() {
   const navigate   = useNavigate();
   const isAdmin    = user?.role === 'administrator';
 
-  const [items,   setItems]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search,  setSearch]  = useState('');
-  const [modal,   setModal]   = useState(null);
-  const [confirm, setConfirm] = useState(null);
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
-  const [form,    setForm]    = useState(EMPTY);
+  const [items,        setItems]        = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [statusFilter, setStatusFilter] = useState('');   // '' = active (default)
+  const [modal,        setModal]        = useState(null);
+  const [confirm,      setConfirm]      = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
+  const [form,         setForm]         = useState(EMPTY);
 
-  useEffect(() => { load(); }, []);  // eslint-disable-line
+  useEffect(() => { load('', ''); }, []);  // eslint-disable-line
 
-  async function load(q = '') {
+  async function load(q, sf) {
     setLoading(true);
     setError('');
     try {
-      const data = await api.get('/api/clients' + (q ? `?search=${encodeURIComponent(q)}` : ''));
+      const params = new URLSearchParams();
+      if (q)  params.set('search', q);
+      if (sf) params.set('status', sf);
+      const qs = params.toString();
+      const data = await api.get('/api/clients' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
@@ -40,7 +45,13 @@ export default function Clients() {
   function handleSearchChange(e) {
     const q = e.target.value;
     setSearch(q);
-    load(q);
+    load(q, statusFilter);
+  }
+
+  function handleStatusFilter(e) {
+    const sf = e.target.value;
+    setStatusFilter(sf);
+    load(search, sf);
   }
 
   function openCreate() {
@@ -79,7 +90,7 @@ export default function Clients() {
         await api.put(`/api/clients/${modal.id}`, body);
       }
       setModal(null);
-      load(search);
+      load(search, statusFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -93,7 +104,7 @@ export default function Clients() {
     try {
       await api.delete(`/api/clients/${confirm.id}`);
       setConfirm(null);
-      load(search);
+      load(search, statusFilter);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -114,10 +125,16 @@ export default function Clients() {
         <div className="toolbar">
           <input
             className="search-input"
-            placeholder="Search clients…"
+            placeholder="Search by code, name, contact…"
             value={search}
             onChange={handleSearchChange}
           />
+          <select className="form-select" style={{ flex: '0 0 auto', minWidth: 130 }}
+            value={statusFilter} onChange={handleStatusFilter}>
+            <option value="">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
+          </select>
         </div>
 
         {error && !modal && <div className="error-banner">{error}</div>}
