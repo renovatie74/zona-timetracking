@@ -29,6 +29,8 @@ import migration06 from '../migrations/0006_audit.sql?raw';
 import migration07 from '../migrations/0007_teams.sql?raw';
 import migration08 from '../migrations/0008_users_team_id.sql?raw';
 import migration09 from '../migrations/0009_projects_v2.sql?raw';
+import migration10 from '../migrations/0010_clients.sql?raw';
+import migration11 from '../migrations/0011_projects_client_id.sql?raw';
 
 async function applyMigration(sql) {
   const statements = sql
@@ -87,18 +89,27 @@ async function seedUser(role = 'administrator', overrides = {}) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
 
-let admin, manager, worker;
+let admin, manager, worker, testClientId;
 
 beforeAll(async () => {
   const migrations = [
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
+    migration10, migration11,
   ];
   for (const sql of migrations) await applyMigration(sql);
 
   admin   = await seedUser('administrator');
   manager = await seedUser('manager');
   worker  = await seedUser('employee');
+
+  // Seed a client for project tests
+  const r = await env.DB.prepare(
+    `INSERT INTO Clients (client_code, name, is_active, created_at, updated_at)
+     VALUES ('C-001', 'Al Maktoum Estates', 1, datetime('now'), datetime('now'))`,
+  ).run();
+  testClientId = r.meta.last_row_id;
+  await env.DB.prepare(`UPDATE ClientCodeSequence SET next_seq = 2`).run();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -285,7 +296,7 @@ describe('Projects — Sprint 2', () => {
 
   it('TC-P01: admin can create a project (generates project_code)', async () => {
     const req = makeRequest('POST', '/api/projects', {
-      name: 'Villa Renovation', client_name: 'Al Maktoum',
+      name: 'Villa Renovation', client_id: testClientId,
       location: 'Dubai Marina', status: 'active', start_date: '2026-06-01',
     }, admin.cookie);
     const res = await projectRoutes.create(req, env);
@@ -324,7 +335,8 @@ describe('Projects — Sprint 2', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.id).toBe(createdProjectId);
-    expect(body.data.client_name).toBe('Al Maktoum');
+    expect(body.data.client_id).toBe(testClientId);
+    expect(body.data.client_name).toBe('Al Maktoum Estates');
   });
 
   it('TC-P06: admin can update a project', async () => {

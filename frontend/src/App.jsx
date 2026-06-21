@@ -10,6 +10,7 @@ import Profile         from './screens/Profile.jsx';
 import Projects        from './screens/admin/Projects.jsx';
 import Employees       from './screens/admin/Employees.jsx';
 import Teams           from './screens/admin/Teams.jsx';
+import Clients         from './screens/admin/Clients.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -40,6 +41,7 @@ export default function App() {
           {/* App shell routes (Sprint 2) */}
           <Route path="/dashboard"  element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile"    element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/clients"    element={<AdminOrManagerRoute><Clients /></AdminOrManagerRoute>} />
           <Route path="/projects"   element={<AdminOrManagerRoute><Projects /></AdminOrManagerRoute>} />
           <Route path="/employees"  element={<AdminOrManagerRoute><Employees /></AdminOrManagerRoute>} />
           <Route path="/teams"      element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />

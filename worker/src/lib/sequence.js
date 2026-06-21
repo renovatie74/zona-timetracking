@@ -48,3 +48,11 @@ export async function nextProjectCode(db) {
     seq,
   };
 }
+
+export async function nextClientCode(db) {
+  const seq = await claimSequence(db, 'ClientCodeSequence');
+  return {
+    client_code: `C-${String(seq).padStart(3, '0')}`,
+    seq,
+  };
+}

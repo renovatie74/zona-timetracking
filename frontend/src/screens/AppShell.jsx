@@ -44,6 +44,16 @@ function IconTeams() {
   );
 }
 
+function IconClients() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="2" y="6" width="16" height="11" rx="2"/>
+      <path d="M6 6V5a4 4 0 018 0v1"/>
+      <path d="M10 11v2M8 13h4"/>
+    </svg>
+  );
+}
+
 function IconProfile() {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
@@ -73,13 +83,16 @@ export default function AppShell({ children, title }) {
 
   function close() { setSidebarOpen(false); }
 
+  const isAdminOrMgr = ['administrator', 'manager'].includes(user?.role);
+
   const navLinks = [
-    { to: '/dashboard',  label: 'Dashboard',  Icon: IconDashboard },
-    { to: '/projects',   label: 'Projects',   Icon: IconProjects },
-    { to: '/employees',  label: 'Employees',  Icon: IconEmployees },
-    { to: '/teams',      label: 'Teams',      Icon: IconTeams },
-    { to: '/profile',    label: 'Profile',    Icon: IconProfile },
-  ];
+    { to: '/dashboard',  label: 'Dashboard',  Icon: IconDashboard, always: true },
+    { to: '/clients',    label: 'Clients',    Icon: IconClients,   always: false },
+    { to: '/projects',   label: 'Projects',   Icon: IconProjects,  always: false },
+    { to: '/employees',  label: 'Employees',  Icon: IconEmployees, always: false },
+    { to: '/teams',      label: 'Teams',      Icon: IconTeams,     always: false },
+    { to: '/profile',    label: 'Profile',    Icon: IconProfile,   always: true },
+  ].filter(l => l.always || isAdminOrMgr);
 
   return (
     <div className="shell">

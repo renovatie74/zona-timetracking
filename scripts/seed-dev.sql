@@ -32,14 +32,25 @@ VALUES
 -- Advance EmployeeCodeSequence past the seeded users so the next generated code is E-007
 UPDATE EmployeeCodeSequence SET next_seq = 7 WHERE id = 1;
 
+-- ── Clients ───────────────────────────────────────────────────────────────────
+INSERT OR IGNORE INTO Clients
+  (id, client_code, name, contact_person, is_active, created_at, updated_at)
+VALUES
+  (1, 'C-001', 'Van Pruizen BV',   'Jan van Pruizen', 1, datetime('now'), datetime('now')),
+  (2, 'C-002', 'Helmond Invest',   'Pieter Helmond',  1, datetime('now'), datetime('now')),
+  (3, 'C-003', 'Al Quoz Holdings', 'Mohammed Al Quoz',1, datetime('now'), datetime('now')),
+  (4, 'C-004', 'Bosrand Dev',      'Erik Bosrand',    1, datetime('now'), datetime('now'));
+
+UPDATE ClientCodeSequence SET next_seq = 5 WHERE id = 1;
+
 -- ── Projects ──────────────────────────────────────────────────────────────────
 INSERT OR IGNORE INTO Projects
-  (id, project_code, project_code_seq, name, client_name, location, status, start_date, is_active, created_at, updated_at)
+  (id, project_code, project_code_seq, name, client_id, location, status, start_date, is_active, created_at, updated_at)
 VALUES
-  (1, 'P-001', 1, 'Frederika van Pruizenweg 54', 'Van Pruizen BV',    'Amsterdam',  'active',    '2026-01-15', 1, datetime('now'), datetime('now')),
-  (2, 'P-002', 2, 'Helmond Fit-Out',             'Helmond Invest',    'Helmond',    'active',    '2026-02-01', 1, datetime('now'), datetime('now')),
-  (3, 'P-003', 3, 'Al Quoz Unit 3',              'Al Quoz Holdings',  'Dubai',      'active',    '2026-03-10', 1, datetime('now'), datetime('now')),
-  (4, 'P-004', 4, 'Bosrand Phase 2',             'Bosrand Dev',       'Eindhoven',  'completed', '2025-11-01', 1, datetime('now'), datetime('now'));
+  (1, 'P-001', 1, 'Frederika van Pruizenweg 54', 1, 'Amsterdam',  'active',    '2026-01-15', 1, datetime('now'), datetime('now')),
+  (2, 'P-002', 2, 'Helmond Fit-Out',             2, 'Helmond',    'active',    '2026-02-01', 1, datetime('now'), datetime('now')),
+  (3, 'P-003', 3, 'Al Quoz Unit 3',              3, 'Dubai',      'active',    '2026-03-10', 1, datetime('now'), datetime('now')),
+  (4, 'P-004', 4, 'Bosrand Phase 2',             4, 'Eindhoven',  'completed', '2025-11-01', 1, datetime('now'), datetime('now'));
 
 -- Advance ProjectCodeSequence past seeded projects so next is P-005
 UPDATE ProjectCodeSequence SET next_seq = 5 WHERE id = 1;

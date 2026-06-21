@@ -5,21 +5,14 @@ import { useAuth }             from '../../auth.jsx';
 import AppShell                from '../AppShell.jsx';
 import PhoneInput              from '../../components/PhoneInput.jsx';
 
-const ROLES = ['employee', 'manager', 'administrator'];
-const EMPTY = { name: '', email: '', phone: '', role: 'employee', team_id: '' };
+const EMPTY = { name: '', contact_person: '', phone: '', email: '', notes: '' };
 
-function derivedStatus(emp) {
-  if (!emp.is_active) return 'inactive';
-  return 'active';
-}
-
-export default function Employees() {
+export default function Clients() {
   const { user }   = useAuth();
   const navigate   = useNavigate();
   const isAdmin    = user?.role === 'administrator';
 
   const [items,   setItems]   = useState([]);
-  const [teams,   setTeams]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [search,  setSearch]  = useState('');
   const [modal,   setModal]   = useState(null);
@@ -28,16 +21,13 @@ export default function Employees() {
   const [error,   setError]   = useState('');
   const [form,    setForm]    = useState(EMPTY);
 
-  useEffect(() => {
-    load();
-    api.get('/api/teams').then(setTeams).catch(() => {});
-  }, []);  // eslint-disable-line
+  useEffect(() => { load(); }, []);  // eslint-disable-line
 
   async function load(q = '') {
     setLoading(true);
     setError('');
     try {
-      const data = await api.get('/api/employees' + (q ? `?search=${encodeURIComponent(q)}` : ''));
+      const data = await api.get('/api/clients' + (q ? `?search=${encodeURIComponent(q)}` : ''));
       setItems(data);
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
@@ -61,11 +51,11 @@ export default function Employees() {
 
   function openEdit(item) {
     setForm({
-      name:    item.name    ?? '',
-      email:   item.email   ?? '',
-      phone:   item.phone   ?? '',
-      role:    item.role    ?? 'employee',
-      team_id: item.team_id ?? '',
+      name:           item.name           ?? '',
+      contact_person: item.contact_person ?? '',
+      phone:          item.phone          ?? '',
+      email:          item.email          ?? '',
+      notes:          item.notes          ?? '',
     });
     setError('');
     setModal({ mode: 'edit', id: item.id });
@@ -78,13 +68,15 @@ export default function Employees() {
     try {
       const body = {
         ...form,
-        phone:   form.phone   || null,
-        team_id: form.team_id ? Number(form.team_id) : null,
+        phone: form.phone || null,
+        email: form.email || null,
+        notes: form.notes || null,
+        contact_person: form.contact_person || null,
       };
       if (modal.mode === 'create') {
-        await api.post('/api/employees', body);
+        await api.post('/api/clients', body);
       } else {
-        await api.put(`/api/employees/${modal.id}`, body);
+        await api.put(`/api/clients/${modal.id}`, body);
       }
       setModal(null);
       load(search);
@@ -99,7 +91,7 @@ export default function Employees() {
     if (!confirm) return;
     setSaving(true);
     try {
-      await api.delete(`/api/employees/${confirm.id}`);
+      await api.delete(`/api/clients/${confirm.id}`);
       setConfirm(null);
       load(search);
     } catch (e) {
@@ -110,19 +102,19 @@ export default function Employees() {
   }
 
   return (
-    <AppShell title="Employees">
+    <AppShell title="Clients">
       <div className="page">
         <div className="page-header">
-          <h1 className="page-title">Employees</h1>
+          <h1 className="page-title">Clients</h1>
           {isAdmin && (
-            <button className="btn btn-solid" onClick={openCreate}>+ New Employee</button>
+            <button className="btn btn-solid" onClick={openCreate}>+ New Client</button>
           )}
         </div>
 
         <div className="toolbar">
           <input
             className="search-input"
-            placeholder="Search by name, email, code…"
+            placeholder="Search clients…"
             value={search}
             onChange={handleSearchChange}
           />
@@ -136,47 +128,36 @@ export default function Employees() {
               <tr>
                 <th>Code</th>
                 <th>Name</th>
-                <th>Email</th>
-                <th>Team</th>
-                <th>Role</th>
+                <th>Contact</th>
+                <th>Phone</th>
                 <th>Status</th>
                 {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 7 : 6}>Loading…</td></tr>
+                <tr className="empty-row"><td colSpan={isAdmin ? 6 : 5}>Loading…</td></tr>
               ) : items.length === 0 ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 7 : 6}>No employees found.</td></tr>
-              ) : items.map(emp => (
-                <tr key={emp.id}>
-                  <td><code style={{ fontSize: '0.8125rem' }}>{emp.employee_code}</code></td>
-                  <td style={{ fontWeight: 500 }}>{emp.name}</td>
-                  <td style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)' }}>{emp.email}</td>
-                  <td>{emp.team_name ?? '—'}</td>
+                <tr className="empty-row"><td colSpan={isAdmin ? 6 : 5}>No clients found.</td></tr>
+              ) : items.map(c => (
+                <tr key={c.id}>
+                  <td><code style={{ fontSize: '0.8125rem' }}>{c.client_code}</code></td>
+                  <td style={{ fontWeight: 500 }}>{c.name}</td>
+                  <td>{c.contact_person ?? '—'}</td>
+                  <td>{c.phone ?? '—'}</td>
                   <td>
-                    <span className="badge badge-planning"
-                      style={{ textTransform: 'capitalize' }}>
-                      {emp.role}
-                    </span>
-                  </td>
-                  <td>
-                    {derivedStatus(emp) === 'inactive'
-                      ? <span className="badge badge-inactive">Inactive</span>
-                      : emp.is_active
-                        ? <span className="badge badge-active">Active</span>
-                        : <span className="badge badge-pending">Pending</span>}
+                    {c.is_active
+                      ? <span className="badge badge-active">Active</span>
+                      : <span className="badge badge-inactive">Inactive</span>}
                   </td>
                   {isAdmin && (
                     <td>
                       <div className="td-actions">
-                        <button className="btn-ghost" onClick={() => openEdit(emp)}>Edit</button>
-                        {emp.is_active !== 0 && (
-                          <button className="btn-ghost" style={{ color: 'var(--color-amber)' }}
-                            onClick={() => setConfirm({ id: emp.id, name: emp.name })}>
-                            Deactivate
-                          </button>
-                        )}
+                        <button className="btn-ghost" onClick={() => openEdit(c)}>Edit</button>
+                        <button className="btn-ghost" style={{ color: 'var(--color-red)' }}
+                          onClick={() => setConfirm({ id: c.id, name: c.name })}>
+                          Deactivate
+                        </button>
                       </div>
                     </td>
                   )}
@@ -191,7 +172,7 @@ export default function Employees() {
         <div className="modal-backdrop" onClick={() => setModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h2 className="modal-title">
-              {modal.mode === 'create' ? 'New Employee' : 'Edit Employee'}
+              {modal.mode === 'create' ? 'New Client' : 'Edit Client'}
             </h2>
             <form onSubmit={handleSave}>
               {error && <div className="error-banner">{error}</div>}
@@ -203,18 +184,9 @@ export default function Employees() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email *</label>
-                <input
-                  className="form-input"
-                  type="email"
-                  required
-                  value={form.email}
-                  disabled={modal.mode === 'edit'}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                />
-                {modal.mode === 'edit' && (
-                  <p className="form-hint">Email cannot be changed after account creation.</p>
-                )}
+                <label className="form-label">Contact Person</label>
+                <input className="form-input" value={form.contact_person}
+                  onChange={e => setForm(f => ({ ...f, contact_person: e.target.value }))} />
               </div>
 
               <div className="form-group">
@@ -226,24 +198,16 @@ export default function Employees() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Role</label>
-                <select className="form-select" value={form.role}
-                  onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                  {ROLES.map(r => (
-                    <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                  ))}
-                </select>
+                <label className="form-label">Email</label>
+                <input className="form-input" type="email" value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Team</label>
-                <select className="form-select" value={form.team_id}
-                  onChange={e => setForm(f => ({ ...f, team_id: e.target.value }))}>
-                  <option value="">— No team —</option>
-                  {teams.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <label className="form-label">Notes</label>
+                <textarea className="form-input" rows={3} value={form.notes}
+                  style={{ resize: 'vertical' }}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
 
               <div className="modal-footer">
@@ -251,7 +215,7 @@ export default function Employees() {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : modal.mode === 'create' ? 'Send Invitation' : 'Save'}
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </form>
@@ -261,13 +225,10 @@ export default function Employees() {
 
       {confirm && (
         <div className="modal-backdrop" onClick={() => setConfirm(null)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Deactivate employee?</h2>
-            <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)', marginBottom: '0.5rem' }}>
-              <strong>{confirm.name}</strong> will be marked inactive and will no longer be able to log in.
-            </p>
-            <p style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)' }}>
-              All historical records (time entries, project notes) are preserved.
+          <div className="modal" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Deactivate client?</h2>
+            <p style={{ fontSize: '0.9rem', color: 'var(--color-grey-600)' }}>
+              "{confirm.name}" will be marked inactive. Projects linked to this client are unaffected.
             </p>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>

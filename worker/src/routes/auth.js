@@ -59,13 +59,61 @@ export async function me(request, env) {
   if (authResult) return authResult;
 
   const user = await env.DB.prepare(
-    `SELECT u.id, u.name, u.email, r.name AS role
+    `SELECT u.id, u.name, u.email, u.mobile, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
   ).bind(request.user.id).first();
 
   if (!user) return Response.json({ error: 'User not found' }, { status: 404 });
 
-  return Response.json({ id: user.id, role: user.role, name: user.name, email: user.email });
+  return Response.json({
+    id: user.id, role: user.role, name: user.name, email: user.email, phone: user.mobile,
+  });
+}
+
+export async function updateProfile(request, env) {
+  const authResult = await requireAuth(request, env);
+  if (authResult) return authResult;
+
+  const body = await request.json();
+
+  if (body.name !== undefined && !body.name?.trim()) {
+    return Response.json({ error: 'Name cannot be empty' }, { status: 400 });
+  }
+  if (body.phone !== undefined && body.phone !== null && body.phone !== '') {
+    if (!/^\+\d{7,15}$/.test(body.phone)) {
+      return Response.json({ error: 'Phone must be in E.164 format (e.g. +48600100200)' }, { status: 400 });
+    }
+  }
+
+  const updates = [];
+  const params  = [];
+
+  if (body.name  !== undefined) { updates.push('name = ?');   params.push(body.name.trim()); }
+  if (body.phone !== undefined) { updates.push('mobile = ?'); params.push(body.phone || null); }
+
+  if (updates.length === 0) {
+    return Response.json({ error: 'No fields to update' }, { status: 400 });
+  }
+
+  const now = new Date().toISOString();
+  updates.push('updated_at = ?');
+  params.push(now, request.user.id);
+
+  await env.DB.prepare(`UPDATE Users SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
+
+  await writeAudit(env.DB, {
+    actorId: request.user.id, action: 'profile_updated', entityType: 'user',
+    entityId: request.user.id, oldValues: null, newValues: body,
+  });
+
+  const user = await env.DB.prepare(
+    `SELECT u.id, u.name, u.email, u.mobile, r.name AS role
+     FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
+  ).bind(request.user.id).first();
+
+  return Response.json({
+    id: user.id, role: user.role, name: user.name, email: user.email, phone: user.mobile,
+  });
 }
 
 export async function activate(request, env) {

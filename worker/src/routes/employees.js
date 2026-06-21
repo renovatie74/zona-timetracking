@@ -4,6 +4,12 @@ import { nextEmployeeCode } from '../lib/sequence.js';
 import { generateInvitationToken, invitationExpiry } from '../lib/tokens.js';
 import { sendInvitation } from '../lib/email.js';
 
+function validatePhone(phone) {
+  if (!phone) return null;
+  if (!/^\+\d{7,15}$/.test(phone)) return 'Phone must be in E.164 format (e.g. +48600100200)';
+  return null;
+}
+
 const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
@@ -70,6 +76,9 @@ export async function create(request, env, ctx) {
   if (!name?.trim()) return Response.json({ error: 'Name is required' }, { status: 400 });
   if (!email?.trim()) return Response.json({ error: 'Email is required' }, { status: 400 });
 
+  const phoneErr = validatePhone(phone);
+  if (phoneErr) return Response.json({ error: phoneErr }, { status: 400 });
+
   const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 2, employee: 1, worker: 1 };
   const role_id  = ROLE_MAP[role] ?? 1;
 
@@ -126,7 +135,10 @@ export async function update(request, env) {
 
   const name      = body.name      !== undefined ? body.name.trim()                : old.name;
   const email     = body.email     !== undefined ? body.email.trim().toLowerCase() : old.email;
-  const phone     = body.phone     !== undefined ? body.phone                      : old.mobile;
+  const rawPhone  = body.phone     !== undefined ? body.phone                      : old.mobile;
+  const phoneErr  = validatePhone(rawPhone);
+  if (phoneErr) return Response.json({ error: phoneErr }, { status: 400 });
+  const phone     = rawPhone;
   const team_id   = body.team_id   !== undefined ? body.team_id                    : old.team_id;
   const is_active = body.is_active !== undefined ? (body.is_active ? 1 : 0)       : old.is_active;
   const role_id   = body.role      !== undefined ? (ROLE_MAP[body.role] ?? old.role_id) : old.role_id;
@@ -175,7 +187,7 @@ export async function remove(request, env) {
   ).bind(now, id).run();
 
   await writeAudit(env.DB, {
-    actorId: request.user.id, action: 'deleted', entityType: 'employee', entityId: Number(id),
+    actorId: request.user.id, action: 'deactivated', entityType: 'employee', entityId: Number(id),
     oldValues: old, newValues: null,
   });
 

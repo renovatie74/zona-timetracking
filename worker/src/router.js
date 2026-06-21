@@ -3,6 +3,7 @@ import * as authRoutes     from './routes/auth.js';
 import * as teamRoutes     from './routes/teams.js';
 import * as employeeRoutes from './routes/employees.js';
 import * as projectRoutes  from './routes/projects.js';
+import * as clientRoutes   from './routes/clients.js';
 
 export const router = Router();
 
@@ -23,7 +24,8 @@ router.get( '/api/auth/me',               authRoutes.me);
 router.post('/api/auth/activate-account', authRoutes.activate);
 router.post('/api/auth/forgot-password',  authRoutes.forgotPassword);
 router.post('/api/auth/reset-password',   authRoutes.resetPassword);
-router.post('/api/auth/change-password',  authRoutes.changePassword);
+router.post( '/api/auth/change-password',  authRoutes.changePassword);
+router.patch('/api/profile',               authRoutes.updateProfile);
 
 // ── Team routes (Sprint 2) ────────────────────────────────────────────────────
 router.get(   '/api/teams',     teamRoutes.list);
@@ -38,6 +40,13 @@ router.get(   '/api/employees/:id', employeeRoutes.get);
 router.post(  '/api/employees',     employeeRoutes.create);
 router.put(   '/api/employees/:id', employeeRoutes.update);
 router.delete('/api/employees/:id', employeeRoutes.remove);
+
+// ── Client routes (Sprint 2.1) ────────────────────────────────────────────────
+router.get(   '/api/clients',     clientRoutes.list);
+router.get(   '/api/clients/:id', clientRoutes.get);
+router.post(  '/api/clients',     clientRoutes.create);
+router.put(   '/api/clients/:id', clientRoutes.update);
+router.delete('/api/clients/:id', clientRoutes.remove);
 
 // ── Project routes (Sprint 2) ─────────────────────────────────────────────────
 router.get(   '/api/projects',     projectRoutes.list);
