@@ -1,4 +1,5 @@
 import { Router } from 'itty-router';
+import * as authRoutes from './routes/auth.js';
 
 export const router = Router();
 
@@ -13,12 +14,13 @@ router.get('/api/health', async (request, env) => {
 });
 
 // ── Auth routes (Sprint 1) ────────────────────────────────────────────────────
-// router.post('/api/auth/login',           authRoutes.login);
-// router.post('/api/auth/logout',          authRoutes.logout);
-// router.post('/api/auth/activate',        authRoutes.activate);
-// router.post('/api/auth/forgot-password', authRoutes.forgotPassword);
-// router.post('/api/auth/reset-password',  authRoutes.resetPassword);
-// router.post('/api/auth/change-password', authRoutes.changePassword);
+router.post('/api/auth/login',            authRoutes.login);
+router.post('/api/auth/logout',           authRoutes.logout);
+router.get( '/api/auth/me',               authRoutes.me);
+router.post('/api/auth/activate-account', authRoutes.activate);
+router.post('/api/auth/forgot-password',  authRoutes.forgotPassword);
+router.post('/api/auth/reset-password',   authRoutes.resetPassword);
+router.post('/api/auth/change-password',  authRoutes.changePassword);
 
 // ── User routes (Sprint 2) ────────────────────────────────────────────────────
 // router.get('/api/users',                    userRoutes.list);

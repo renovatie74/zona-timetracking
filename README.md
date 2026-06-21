@@ -145,6 +145,34 @@ Apply to both `dev-time.zonaproperties.ae` and `time.zonaproperties.ae`.
 
 ---
 
+## Technical Decisions
+
+### Password Hashing — PBKDF2-SHA256 at 100,000 iterations
+
+**Decision:** `worker/src/lib/password.js` uses PBKDF2-HMAC-SHA256 with **100,000 iterations** (not the OWASP 2023-recommended 600,000).
+
+**Reason:** The Cloudflare Workers runtime (`workerd`) enforces a hard cap of 100,000 iterations on `crypto.subtle.deriveBits()` with PBKDF2. Any higher value throws at runtime:
+
+```
+NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are not supported (requested 600000).
+```
+
+Confirmed via live test against deployed DEV worker (2026-06-21):
+
+| Iterations | Deployed Worker | Local `wrangler dev` |
+|---|---|---|
+| 100,000 | ✅ works | ✅ works |
+| 300,000 | ❌ `NotSupportedError` | ✅ works (no cap in miniflare 3.x) |
+| 600,000 | ❌ `NotSupportedError` | ✅ works (no cap in miniflare 3.x) |
+
+**Important:** `wrangler dev` (miniflare 3.x) does **not** enforce this cap. Tests that pass locally at 600k will fail when deployed. The test suite uses `@cloudflare/vitest-pool-workers` (miniflare 4.x / actual `workerd` binary) which does enforce it.
+
+**Security note:** 100,000 PBKDF2-SHA256 iterations is below the 2023 OWASP minimum. This is acceptable for this application's threat model (bounded workforce, admin-provisioned accounts, company devices). If the cap is lifted in a future workerd release, increase to 600,000 by changing `ITERATIONS` in `worker/src/lib/password.js`.
+
+**Storage format:** `pbkdf2:sha256:<iterations>:<base64_salt>:<base64_hash>` — self-describing, so a future iteration count increase does not invalidate existing hashes.
+
+---
+
 ## Sequence Logic
 
 Both `EmployeeCodeSequence` and `ProjectCodeSequence` use an atomic single-statement pattern:

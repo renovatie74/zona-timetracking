@@ -16,8 +16,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Sprint 1: replace stub with real GET /api/auth/me
-    setLoading(false);
+    api.get('/api/auth/me')
+      .then(data => setUser(data))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   async function login(email, password) {

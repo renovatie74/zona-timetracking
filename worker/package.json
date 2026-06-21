@@ -4,18 +4,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":         "wrangler dev --env dev",
-    "deploy:dev":  "wrangler deploy --env dev",
+    "dev": "wrangler dev --env dev",
+    "deploy:dev": "wrangler deploy --env dev",
     "deploy:prod": "wrangler deploy --env prod",
     "dry-run:dev": "wrangler deploy --env dev --dry-run",
-    "migrate:dev":  "wrangler d1 migrations apply timetracking-dev --env dev",
-    "migrate:prod": "wrangler d1 migrations apply timetracking-prod --env prod"
+    "migrate:dev": "wrangler d1 migrations apply timetracking-dev --env dev",
+    "migrate:prod": "wrangler d1 migrations apply timetracking-prod --env prod",
+    "test": "vitest run"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
     "itty-router": "^4.0.27"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.18",
+    "vitest": "^4.1.9",
     "wrangler": "^3.78.0"
   }
 }

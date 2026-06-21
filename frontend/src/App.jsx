@@ -1,9 +1,17 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './auth.jsx';
+import { AuthProvider, useAuth } from './auth.jsx';
 import Login           from './screens/Login.jsx';
+import ForgotPassword  from './screens/ForgotPassword.jsx';
+import ResetPassword   from './screens/ResetPassword.jsx';
+import ActivateAccount from './screens/ActivateAccount.jsx';
+import ChangePassword  from './screens/ChangePassword.jsx';
+import Dashboard       from './screens/Dashboard.jsx';
 
-// Sprint 1+ screens are imported and wired here as they are implemented.
-// Each sprint adds its routes in this file — no other file needs to change.
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" replace />;
+}
 
 export default function App() {
   return (
@@ -11,11 +19,14 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Auth (Sprint 1) */}
-          <Route path="/login"           element={<Login />} />
-          {/* <Route path="/forgot-password"  element={<ForgotPassword />} /> */}
-          {/* <Route path="/reset-password"   element={<ResetPassword />} /> */}
-          {/* <Route path="/activate"         element={<ActivateAccount />} /> */}
-          {/* <Route path="/change-password"  element={<ChangePassword />} /> */}
+          <Route path="/login"            element={<Login />} />
+          <Route path="/forgot-password"  element={<ForgotPassword />} />
+          <Route path="/reset-password"   element={<ResetPassword />} />
+          <Route path="/activate"         element={<ActivateAccount />} />
+          <Route path="/change-password"  element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
+
+          {/* Post-login landing (Sprint 1 stub, expanded in Sprint 2+) */}
+          <Route path="/dashboard"        element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
           {/* Worker (Sprint 3+) */}
           {/* <Route path="/"                 element={<ProtectedRoute><Home /></ProtectedRoute>} /> */}

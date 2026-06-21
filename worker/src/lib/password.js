@@ -1,8 +1,8 @@
 /**
  * Password hashing via PBKDF2-HMAC-SHA256 (Web Crypto API, no npm dependency).
  *
- * Algorithm: PBKDF2-HMAC-SHA256, 600 000 iterations, 16-byte random salt, 256-bit key.
- * OWASP 2023 recommendation for PBKDF2-SHA256.
+ * Algorithm: PBKDF2-HMAC-SHA256, 100 000 iterations, 16-byte random salt, 256-bit key.
+ * Capped at 100k — Cloudflare Workers Web Crypto does not support higher PBKDF2 iteration counts.
  *
  * Storage format (self-describing for future iteration count increases):
  *   pbkdf2:sha256:<iterations>:<base64_salt>:<base64_hash>
@@ -12,7 +12,7 @@
 
 const ALGORITHM  = 'PBKDF2';
 const HASH       = 'SHA-256';
-const ITERATIONS = 600_000;
+const ITERATIONS = 100_000; // Cloudflare Workers Web Crypto caps PBKDF2 at 100k iterations
 const SALT_BYTES = 16;
 const KEY_BITS   = 256;
 

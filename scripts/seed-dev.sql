@@ -6,12 +6,12 @@
 -- before invitation emails are working, generate a hash with:
 --
 --   node -e "
---     const salt = crypto.getRandomValues(new Uint8Array(16));
---     const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('Test1234!'), 'PBKDF2', false, ['deriveBits']);
---     const bits = await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:600000}, key, 256);
---     const saltB64 = btoa(String.fromCharCode(...salt));
---     const hashB64 = btoa(String.fromCharCode(...new Uint8Array(bits)));
---     console.log(\`pbkdf2:sha256:600000:\${saltB64}:\${hashB64}\`);
+--     const { subtle } = require('crypto').webcrypto;
+--     const { randomBytes } = require('crypto');
+--     const salt = randomBytes(16);
+--     subtle.importKey('raw', Buffer.from('Test1234!'), 'PBKDF2', false, ['deriveBits'])
+--       .then(key => subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000}, key, 256))
+--       .then(bits => console.log('pbkdf2:sha256:100000:' + salt.toString('base64') + ':' + Buffer.from(bits).toString('base64')));
 --   "
 -- Then: UPDATE Users SET password_hash='<output>', is_active=1 WHERE email='corina@zonaproperties.ae';
 
