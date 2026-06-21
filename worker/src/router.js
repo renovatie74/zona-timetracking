@@ -1,5 +1,8 @@
 import { Router } from 'itty-router';
-import * as authRoutes from './routes/auth.js';
+import * as authRoutes     from './routes/auth.js';
+import * as teamRoutes     from './routes/teams.js';
+import * as employeeRoutes from './routes/employees.js';
+import * as projectRoutes  from './routes/projects.js';
 
 export const router = Router();
 
@@ -22,18 +25,26 @@ router.post('/api/auth/forgot-password',  authRoutes.forgotPassword);
 router.post('/api/auth/reset-password',   authRoutes.resetPassword);
 router.post('/api/auth/change-password',  authRoutes.changePassword);
 
-// ── User routes (Sprint 2) ────────────────────────────────────────────────────
-// router.get('/api/users',                    userRoutes.list);
-// router.post('/api/users',                   userRoutes.create);
-// router.patch('/api/users/:id',              userRoutes.update);
-// router.post('/api/users/:id/send-reset',    userRoutes.sendReset);
-// router.post('/api/users/:id/resend-invite', userRoutes.resendInvite);
+// ── Team routes (Sprint 2) ────────────────────────────────────────────────────
+router.get(   '/api/teams',     teamRoutes.list);
+router.get(   '/api/teams/:id', teamRoutes.get);
+router.post(  '/api/teams',     teamRoutes.create);
+router.put(   '/api/teams/:id', teamRoutes.update);
+router.delete('/api/teams/:id', teamRoutes.remove);
+
+// ── Employee routes (Sprint 2) ────────────────────────────────────────────────
+router.get(   '/api/employees',     employeeRoutes.list);
+router.get(   '/api/employees/:id', employeeRoutes.get);
+router.post(  '/api/employees',     employeeRoutes.create);
+router.put(   '/api/employees/:id', employeeRoutes.update);
+router.delete('/api/employees/:id', employeeRoutes.remove);
 
 // ── Project routes (Sprint 2) ─────────────────────────────────────────────────
-// router.get('/api/projects',       projectRoutes.list);
-// router.post('/api/projects',      projectRoutes.create);
-// router.get('/api/projects/:id',   projectRoutes.get);
-// router.patch('/api/projects/:id', projectRoutes.update);
+router.get(   '/api/projects',     projectRoutes.list);
+router.get(   '/api/projects/:id', projectRoutes.get);
+router.post(  '/api/projects',     projectRoutes.create);
+router.put(   '/api/projects/:id', projectRoutes.update);
+router.delete('/api/projects/:id', projectRoutes.remove);
 
 // ── Time entry routes (Sprint 3) ──────────────────────────────────────────────
 // router.post('/api/time-entries/checkin',  timeEntryRoutes.checkin);
