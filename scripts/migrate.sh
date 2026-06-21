@@ -50,7 +50,7 @@ echo "Applying migrations → ${DB_NAME} (env: ${ENV})"
 echo ""
 
 cd worker
-npx wrangler d1 migrations apply "${DB_NAME}" --env "${ENV}"
+npx wrangler d1 migrations apply "${DB_NAME}" --env "${ENV}" --remote
 
 echo ""
 echo "Done."
