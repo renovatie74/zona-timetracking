@@ -116,7 +116,7 @@ Read the `Total Upload` size:
 - **> 10 MB** → Try SheetJS: replace `exceljs` with `xlsx` in `package.json`, update `worker.js` import, re-run.
 - **Still > 10 MB** → Use CSV fallback. Record decision below.
 
-**Spike result:** *(fill in after running)*
+**Spike result:** ✅ ExcelJS 4.4.0 — 1519 KiB / gzip 306 KiB. Under 10 MB limit. Added to `worker/package.json`.
 
 ---
 

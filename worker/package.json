@@ -12,6 +12,7 @@
     "migrate:prod": "wrangler d1 migrations apply timetracking-prod --env prod"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "itty-router": "^4.0.27"
   },
   "devDependencies": {

@@ -1,8 +1,0 @@
-name = "xlsx-bundle-spike"
-main = "worker.js"
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
-
-[env.spike]
-name = "xlsx-bundle-spike"
-# No D1 binding needed — spike only generates an XLSX in memory.
