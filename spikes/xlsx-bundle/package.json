@@ -1,0 +1,16 @@
+{
+  "name": "xlsx-bundle-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dry-run": "wrangler deploy --env spike --dry-run",
+    "install-and-check": "npm install && npm run dry-run"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

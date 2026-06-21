@@ -1,0 +1,20 @@
+{
+  "name": "timetracking-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev":         "wrangler dev --env dev",
+    "deploy:dev":  "wrangler deploy --env dev",
+    "deploy:prod": "wrangler deploy --env prod",
+    "dry-run:dev": "wrangler deploy --env dev --dry-run",
+    "migrate:dev":  "wrangler d1 migrations apply timetracking-dev --env dev",
+    "migrate:prod": "wrangler d1 migrations apply timetracking-prod --env prod"
+  },
+  "dependencies": {
+    "itty-router": "^4.0.27"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

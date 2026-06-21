@@ -1,0 +1,46 @@
+name = "timetracking-api"
+main = "src/worker.js"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ── DEV environment ────────────────────────────────────────────────────────────
+[env.dev]
+name = "timetracking-api-dev"
+
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "timetracking-dev"
+database_id = "REPLACE_WITH_DEV_D1_ID"  # set after: wrangler d1 create timetracking-dev
+
+[env.dev.triggers]
+crons = ["30 19 * * *"]  # 23:30 Dubai (UTC+4) = 19:30 UTC
+
+[env.dev.vars]
+ENVIRONMENT = "development"
+EMAIL_FROM  = "noreply@dev.zonaproperties.ae"
+APP_URL     = "https://dev-time.zonaproperties.ae"
+
+# Secrets (set via wrangler secret put, never committed):
+#   wrangler secret put JWT_SECRET --env dev
+#   wrangler secret put EMAIL_API_KEY --env dev
+
+# ── PROD environment ───────────────────────────────────────────────────────────
+[env.prod]
+name = "timetracking-api-prod"
+
+[[env.prod.d1_databases]]
+binding = "DB"
+database_name = "timetracking-prod"
+database_id = "REPLACE_WITH_PROD_D1_ID"  # set after: wrangler d1 create timetracking-prod
+
+[env.prod.triggers]
+crons = ["30 19 * * *"]  # 23:30 Dubai (UTC+4) = 19:30 UTC
+
+[env.prod.vars]
+ENVIRONMENT = "production"
+EMAIL_FROM  = "noreply@zonaproperties.ae"
+APP_URL     = "https://time.zonaproperties.ae"
+
+# Secrets:
+#   wrangler secret put JWT_SECRET --env prod
+#   wrangler secret put EMAIL_API_KEY --env prod

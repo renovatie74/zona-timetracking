@@ -1,0 +1,58 @@
+/* Base reset and design tokens — Sprint 1 will expand with full component styles */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Brand colours (spec §12.1 theme_color) */
+  --color-navy:    #1B2A4A;
+  --color-white:   #FFFFFF;
+  --color-grey-50: #F5F5F5;
+  --color-grey-200: #E5E7EB;
+  --color-grey-600: #6B7280;
+
+  /* Status colours */
+  --color-green:   #16A34A;
+  --color-amber:   #D97706;
+  --color-red:     #DC2626;
+  --color-blue:    #2563EB;
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-size-base: 16px;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  background: var(--color-grey-50);
+  color: var(--color-navy);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--color-blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
