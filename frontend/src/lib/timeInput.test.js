@@ -88,6 +88,23 @@ describe('stepTime', () => {
     expect(stepTime('08:00', 15)).toBe('08:15');
     expect(stepTime('08:45', -15)).toBe('08:30');
   });
+
+  it('TC-TI16: result after step is always valid (error clears)', () => {
+    // All spec cases from Sprint 3A.3 — step result must pass validateTime
+    const cases = [
+      ['08:12', 15, '08:15'],
+      ['08:12', -15, '08:00'],
+      ['08:27', 15, '08:30'],
+      ['08:27', -15, '08:15'],
+      ['08:30', 15, '08:45'],
+      ['08:30', -15, '08:15'],
+    ];
+    for (const [input, delta, expected] of cases) {
+      const result = stepTime(input, delta);
+      expect(result).toBe(expected);
+      expect(validateTime(result)).toBeNull();  // no error after step
+    }
+  });
 });
 
 // ── roundingPreview ───────────────────────────────────────────────────────────

@@ -477,7 +477,7 @@ export default function TimeEntries() {
                   <label className="form-label">Start Time *</label>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     <button type="button" className="btn-step" aria-label="−15 min"
-                      onClick={() => setForm(f => ({ ...f, start_time: stepTime(f.start_time || '08:00', -15) }))}>−</button>
+                      onClick={() => { const v = stepTime(form.start_time || '08:00', -15); setForm(f => ({ ...f, start_time: v })); setStartErr(validateTime(v) ?? ''); }}>−</button>
                     <input className={`form-input${startErr ? ' error' : ''}`}
                       type="text" placeholder="HH:MM"
                       value={form.start_time}
@@ -485,7 +485,7 @@ export default function TimeEntries() {
                       onBlur={() => setStartErr(validateTime(form.start_time) ?? '')}
                       style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', flex: 1 }} />
                     <button type="button" className="btn-step" aria-label="+15 min"
-                      onClick={() => setForm(f => ({ ...f, start_time: stepTime(f.start_time || '07:45', 15) }))}>+</button>
+                      onClick={() => { const v = stepTime(form.start_time || '07:45', 15); setForm(f => ({ ...f, start_time: v })); setStartErr(validateTime(v) ?? ''); }}>+</button>
                   </div>
                   {startErr && <div className="form-error">{startErr}</div>}
                   <div className="time-quick-row">
@@ -503,7 +503,7 @@ export default function TimeEntries() {
                   <label className="form-label">End Time *</label>
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     <button type="button" className="btn-step" aria-label="−15 min"
-                      onClick={() => setForm(f => ({ ...f, end_time: stepTime(f.end_time || '16:00', -15) }))}>−</button>
+                      onClick={() => { const v = stepTime(form.end_time || '16:00', -15); setForm(f => ({ ...f, end_time: v })); setEndErr(validateTime(v) ?? ''); }}>−</button>
                     <input className={`form-input${endErr ? ' error' : ''}`}
                       type="text" placeholder="HH:MM"
                       value={form.end_time}
@@ -511,7 +511,7 @@ export default function TimeEntries() {
                       onBlur={() => setEndErr(validateTime(form.end_time) ?? '')}
                       style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', flex: 1 }} />
                     <button type="button" className="btn-step" aria-label="+15 min"
-                      onClick={() => setForm(f => ({ ...f, end_time: stepTime(f.end_time || '15:45', 15) }))}>+</button>
+                      onClick={() => { const v = stepTime(form.end_time || '15:45', 15); setForm(f => ({ ...f, end_time: v })); setEndErr(validateTime(v) ?? ''); }}>+</button>
                   </div>
                   {endErr && <div className="form-error">{endErr}</div>}
                   <div className="time-quick-row">
