@@ -13,6 +13,14 @@ import Teams           from './screens/admin/Teams.jsx';
 import Clients         from './screens/admin/Clients.jsx';
 import TimeEntries     from './screens/admin/TimeEntries.jsx';
 
+// Smart home redirect: authenticated → /dashboard, unauthenticated → /login.
+// Waits for auth check to finish so it never shows a blank screen.
+function HomeRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return <Navigate to={user ? '/dashboard' : '/login'} replace />;
+}
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
@@ -32,6 +40,9 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Root — auth-aware redirect; no blank screen */}
+          <Route path="/" element={<HomeRoute />} />
+
           {/* Auth (Sprint 1) */}
           <Route path="/login"            element={<Login />} />
           <Route path="/forgot-password"  element={<ForgotPassword />} />
@@ -45,10 +56,11 @@ export default function App() {
           <Route path="/clients"    element={<AdminOrManagerRoute><Clients /></AdminOrManagerRoute>} />
           <Route path="/projects"   element={<AdminOrManagerRoute><Projects /></AdminOrManagerRoute>} />
           <Route path="/employees"  element={<AdminOrManagerRoute><Employees /></AdminOrManagerRoute>} />
-          <Route path="/teams"         element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
+          <Route path="/teams"      element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
           <Route path="/time-entries" element={<AdminOrManagerRoute><TimeEntries /></AdminOrManagerRoute>} />
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Unknown paths fall back to home redirect */}
+          <Route path="*" element={<HomeRoute />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -207,6 +207,37 @@ export async function update(request, env) {
   return Response.json({ data: entry });
 }
 
+// ── Sprint 3B — Employee's own entries (history) ─────────────────────────────
+
+export async function mine(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const url       = new URL(request.url);
+  const date_from = url.searchParams.get('date_from') ?? '';
+  const date_to   = url.searchParams.get('date_to')   ?? '';
+
+  const conditions = ['te.user_id = ? AND te.is_deleted = 0'];
+  const params     = [request.user.id];
+
+  if (date_from) { conditions.push("date(te.start_time) >= ?"); params.push(date_from); }
+  if (date_to)   { conditions.push("date(te.start_time) <= ?"); params.push(date_to); }
+
+  const { results } = await env.DB.prepare(
+    `SELECT te.id, te.project_id, p.name AS project_name, p.project_code,
+            te.start_time, te.stop_time,
+            te.duration_minutes, te.rounded_duration_minutes,
+            te.rounded_start_time, te.rounded_stop_time, te.status
+     FROM   TimeEntries te
+     JOIN   Projects p ON p.id = te.project_id
+     WHERE  ${conditions.join(' AND ')}
+     ORDER  BY te.start_time DESC
+     LIMIT  100`,
+  ).bind(...params).all();
+
+  return Response.json({ data: results });
+}
+
 // ── Sprint 3B — Employee check-in / check-out ─────────────────────────────────
 
 export async function active(request, env) {

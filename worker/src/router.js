@@ -66,8 +66,9 @@ router.post(  '/api/time-entries',      timeEntryRoutes.create);
 router.put(   '/api/time-entries/:id',  timeEntryRoutes.update);
 router.delete('/api/time-entries/:id',  timeEntryRoutes.remove);
 
-// ── Time entry routes (Sprint 3B — check-in / check-out) ─────────────────────
-// These must be declared before /:id routes so itty-router doesn't swallow them.
+// ── Time entry routes (Sprint 3B — employee self-service) ────────────────────
+// Declared before /:id routes — itty-router matches in registration order.
+router.get( '/api/time-entries/mine',      timeEntryRoutes.mine);
 router.get( '/api/time-entries/active',    timeEntryRoutes.active);
 router.post('/api/time-entries/checkin',   timeEntryRoutes.checkin);
 router.post('/api/time-entries/checkout',  timeEntryRoutes.checkout);

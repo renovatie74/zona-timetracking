@@ -1,20 +1,31 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAuth }  from '../auth.jsx';
-import { useGPS }   from '../hooks/useGPS.js';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../auth.jsx';
+import { useGPS }  from '../hooks/useGPS.js';
 
 const api = path => `/api${path}`;
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 function fmtDuration(minutes) {
+  if (minutes == null || minutes < 0) return '0h 00m';
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${pad2(m)}m`;
 }
 
 function fmtTime(isoString) {
+  if (!isoString) return '—';
   const d = new Date(isoString);
   return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function fmtDate(isoDate) {
+  const d = new Date(isoDate + 'T00:00:00Z');
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 }
 
 function useElapsed(startIso) {
@@ -29,27 +40,21 @@ function useElapsed(startIso) {
   return elapsed;
 }
 
-// ── Project picker modal ──────────────────────────────────────────────────────
-function ProjectPicker({ recentProjects, onSelect, onCancel, loading }) {
-  const [search, setSearch]     = useState('');
-  const [results, setResults]   = useState([]);
-  const [searching, setSearching] = useState(false);
+// ── Project picker ────────────────────────────────────────────────────────────
+// Shows Recent (rank 1-2) and All Available as permanent groups.
+// Typing in the search field filters both groups — it never replaces the list.
+function ProjectPicker({ allProjects, onSelect, onCancel, busy }) {
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    if (!search.trim()) { setResults([]); return; }
-    const id = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(api(`/projects/mine?q=${encodeURIComponent(search)}`), { credentials: 'include' });
-        const data = await res.json();
-        setResults(data.data ?? []);
-      } catch { setResults([]); }
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(id);
-  }, [search]);
+  const q = search.trim().toLowerCase();
 
-  const displayed = search.trim() ? results : recentProjects;
+  const filter = list =>
+    q ? list.filter(p => p.name.toLowerCase().includes(q) || (p.project_code ?? '').toLowerCase().includes(q)) : list;
+
+  const recent = filter(allProjects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank));
+  const rest   = filter(allProjects.filter(p => p.recent_rank == null));
+
+  const totalFiltered = recent.length + rest.length;
 
   return (
     <div className="em-overlay" onClick={onCancel}>
@@ -62,7 +67,7 @@ function ProjectPicker({ recentProjects, onSelect, onCancel, loading }) {
         <div className="em-search-wrap">
           <input
             className="em-search"
-            type="text"
+            type="search"
             placeholder="Search projects…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -70,34 +75,76 @@ function ProjectPicker({ recentProjects, onSelect, onCancel, loading }) {
           />
         </div>
 
-        {!search.trim() && recentProjects.length > 0 && (
-          <p className="em-recent-label">Recent</p>
-        )}
-
-        <ul className="em-project-list">
-          {displayed.length === 0 && search.trim() && !searching && (
-            <li className="em-no-results">No projects found</li>
+        <div className="em-project-list">
+          {totalFiltered === 0 && (
+            <p className="em-no-results">No projects found</p>
           )}
-          {displayed.map(p => (
-            <li key={p.id}>
-              <button
-                className="em-project-btn"
-                onClick={() => onSelect(p)}
-                disabled={loading}
-              >
-                <span className="em-project-name">{p.name}</span>
-                {p.project_code && <span className="em-project-code">{p.project_code}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+
+          {recent.length > 0 && (
+            <>
+              <p className="em-section-label">Recent</p>
+              {recent.map(p => (
+                <ProjectRow key={p.id} project={p} onSelect={onSelect} busy={busy} />
+              ))}
+            </>
+          )}
+
+          {rest.length > 0 && (
+            <>
+              <p className="em-section-label">All Projects</p>
+              {rest.map(p => (
+                <ProjectRow key={p.id} project={p} onSelect={onSelect} busy={busy} />
+              ))}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// ── Checked-out state (idle) ──────────────────────────────────────────────────
-function IdleView({ user, onCheckin }) {
+function ProjectRow({ project: p, onSelect, busy }) {
+  return (
+    <button className="em-project-btn" onClick={() => onSelect(p)} disabled={busy}>
+      <span className="em-project-name">{p.name}</span>
+      {p.project_code && <span className="em-project-code">{p.project_code}</span>}
+    </button>
+  );
+}
+
+// ── Today's history strip ─────────────────────────────────────────────────────
+function TodayHistory({ entries }) {
+  if (!entries || entries.length === 0) return null;
+
+  const closed  = entries.filter(e => e.stop_time);
+  const total   = closed.reduce((sum, e) => sum + (e.rounded_duration_minutes ?? e.duration_minutes ?? 0), 0);
+
+  return (
+    <div className="em-history">
+      <div className="em-history-header">
+        <span className="em-history-title">Today</span>
+        <span className="em-history-total">{fmtDuration(total)}</span>
+      </div>
+      <ul className="em-history-list">
+        {entries.map(e => (
+          <li key={e.id} className="em-history-item">
+            <div className="em-history-times">
+              {fmtTime(e.start_time)}{e.stop_time ? ` – ${fmtTime(e.stop_time)}` : ' – ongoing'}
+            </div>
+            <div className="em-history-project">{e.project_name}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Idle view ─────────────────────────────────────────────────────────────────
+function IdleView({ user, todayEntries, onCheckin }) {
+  const closed  = (todayEntries ?? []).filter(e => e.stop_time);
+  const total   = closed.reduce((sum, e) => sum + (e.rounded_duration_minutes ?? e.duration_minutes ?? 0), 0);
+  const last    = closed[0];  // most recent closed entry (DESC order)
+
   return (
     <div className="em-screen">
       <header className="em-header">
@@ -105,10 +152,35 @@ function IdleView({ user, onCheckin }) {
         <div className="em-status-badge em-badge-idle">Not checked in</div>
       </header>
 
-      <div className="em-hero">
-        <div className="em-clock-icon" aria-hidden="true">⏱</div>
-        <p className="em-hero-text">Tap below to start your work session</p>
+      <div className="em-date-bar">
+        <span className="em-date-label">{fmtDate(todayISO())}</span>
       </div>
+
+      {(total > 0 || last) && (
+        <div className="em-today-summary">
+          {total > 0 && (
+            <div className="em-today-row">
+              <span>Hours today</span>
+              <strong>{fmtDuration(total)}</strong>
+            </div>
+          )}
+          {last && (
+            <div className="em-today-row">
+              <span>Last project</span>
+              <strong className="em-today-project">{last.project_code ? `${last.project_code} ` : ''}{last.project_name}</strong>
+            </div>
+          )}
+        </div>
+      )}
+
+      <TodayHistory entries={todayEntries} />
+
+      {(!todayEntries || todayEntries.length === 0) && (
+        <div className="em-hero">
+          <div className="em-clock-icon" aria-hidden="true">⏱</div>
+          <p className="em-hero-text">Tap below to start your work session</p>
+        </div>
+      )}
 
       <button className="em-btn-checkin" onClick={onCheckin}>
         Check In
@@ -117,8 +189,8 @@ function IdleView({ user, onCheckin }) {
   );
 }
 
-// ── Checked-in state (active session) ────────────────────────────────────────
-function ActiveView({ user, session, onCheckout }) {
+// ── Active session view ───────────────────────────────────────────────────────
+function ActiveView({ user, session, onCheckout, onSwitch }) {
   const elapsed = useElapsed(session.start_time);
 
   return (
@@ -145,16 +217,16 @@ function ActiveView({ user, session, onCheckout }) {
           <span className="em-elapsed-value">{fmtDuration(elapsed)}</span>
         </div>
         {session.gps_status === 'captured' && (
-          <div className="em-gps-chip em-gps-ok" title="GPS location captured">
-            📍 GPS captured
-          </div>
+          <div className="em-gps-chip em-gps-ok">📍 GPS captured</div>
         )}
         {session.gps_status === 'denied' && (
-          <div className="em-gps-chip em-gps-deny" title="Location access denied">
-            📍 Location denied
-          </div>
+          <div className="em-gps-chip em-gps-deny">📍 Location denied</div>
         )}
       </div>
+
+      <button className="em-btn-switch" onClick={onSwitch}>
+        Switch Project
+      </button>
 
       <button className="em-btn-checkout" onClick={onCheckout}>
         Check Out
@@ -163,7 +235,7 @@ function ActiveView({ user, session, onCheckout }) {
   );
 }
 
-// ── Summary screen shown briefly after checkout ───────────────────────────────
+// ── Session summary view ──────────────────────────────────────────────────────
 function SummaryView({ summary, onDone }) {
   return (
     <div className="em-screen">
@@ -198,59 +270,58 @@ function SummaryView({ summary, onDone }) {
   );
 }
 
-// ── Main EmployeeDashboard ────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 export default function EmployeeDashboard() {
-  const { user }     = useAuth();
-  const gps          = useGPS();
+  const { user } = useAuth();
+  const gps      = useGPS();
 
-  const [session,   setSession]   = useState(null);   // active entry or null
-  const [loading,   setLoading]   = useState(true);
-  const [picking,   setPicking]   = useState(false);  // show project picker
-  const [summary,   setSummary]   = useState(null);   // post-checkout summary
-  const [error,     setError]     = useState('');
-  const [recent,    setRecent]    = useState([]);
+  const [session,      setSession]      = useState(null);
+  const [allProjects,  setAllProjects]  = useState([]);
+  const [todayEntries, setTodayEntries] = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [busy,         setBusy]         = useState(false);  // GPS/API in flight
+  const [picking,      setPicking]      = useState(false);
+  const [summary,      setSummary]      = useState(null);
+  const [error,        setError]        = useState('');
+  // 'checkin' | 'switch' — distinguishes what happens after project is picked
+  const [pickMode,     setPickMode]     = useState('checkin');
 
-  // Load active session and recent projects
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const [activeRes, projectsRes] = await Promise.all([
-          fetch(api('/time-entries/active'), { credentials: 'include' }),
-          fetch(api('/projects/mine'), { credentials: 'include' }),
-        ]);
-        const activeData   = await activeRes.json();
-        const projectsData = await projectsRes.json();
-        if (!cancelled) {
-          setSession(activeData.data ?? null);
-          setRecent(projectsData.data ?? []);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
+  const today = todayISO();
+
+  const loadAll = useCallback(async () => {
+    try {
+      const [activeRes, projectsRes, historyRes] = await Promise.all([
+        fetch(api('/time-entries/active'),              { credentials: 'include' }),
+        fetch(api('/projects/mine'),                    { credentials: 'include' }),
+        fetch(api(`/time-entries/mine?date_from=${today}&date_to=${today}`), { credentials: 'include' }),
+      ]);
+      const [activeData, projectsData, historyData] = await Promise.all([
+        activeRes.json(), projectsRes.json(), historyRes.json(),
+      ]);
+      setSession(activeData.data ?? null);
+      setAllProjects(projectsData.data ?? []);
+      setTodayEntries(historyData.data ?? []);
+    } catch {
+      // leave previous state, don't crash
+    } finally {
+      setLoading(false);
     }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  }, [today]);
 
-  const handleCheckinClick = () => {
-    setError('');
-    setPicking(true);
-  };
+  useEffect(() => { loadAll(); }, [loadAll]);
 
+  // ── Check in ────────────────────────────────────────────────────────────────
   const handleProjectSelect = async (project) => {
     setPicking(false);
-    setLoading(true);
+    setBusy(true);
     setError('');
 
     const gpsData = await gps.capture();
 
     try {
-      const res = await fetch(api('/time-entries/checkin'), {
-        method:  'POST',
+      const res  = await fetch(api('/time-entries/checkin'), {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ project_id: project.id, gps: gpsData }),
       });
       const data = await res.json();
@@ -258,44 +329,54 @@ export default function EmployeeDashboard() {
         setError(data.error ?? 'Check-in failed');
       } else {
         setSession({ ...data.data, project_name: project.name });
+        await loadAll();
       }
     } catch {
       setError('Network error. Please try again.');
     }
-    setLoading(false);
+    setBusy(false);
   };
 
-  const handleCheckout = async () => {
-    setLoading(true);
+  // ── Check out ───────────────────────────────────────────────────────────────
+  const handleCheckout = async ({ thenSwitch = false } = {}) => {
+    setBusy(true);
     setError('');
 
     const gpsData = await gps.capture();
 
     try {
-      const res = await fetch(api('/time-entries/checkout'), {
-        method:  'POST',
+      const res  = await fetch(api('/time-entries/checkout'), {
+        method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ gps: gpsData }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? 'Check-out failed');
+        setBusy(false);
+        return;
+      }
+      setSession(null);
+      await loadAll();
+      if (thenSwitch) {
+        setPickMode('switch');
+        setPicking(true);
       } else {
         setSummary(data.data);
-        setSession(null);
       }
     } catch {
       setError('Network error. Please try again.');
     }
-    setLoading(false);
+    setBusy(false);
   };
 
+  const handleSwitch    = () => handleCheckout({ thenSwitch: true });
   const handleSummaryDone = () => setSummary(null);
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="em-screen em-loading">
+      <div className="em-root em-loading">
         <div className="em-spinner" aria-label="Loading" />
       </div>
     );
@@ -313,17 +394,26 @@ export default function EmployeeDashboard() {
       {summary ? (
         <SummaryView summary={summary} onDone={handleSummaryDone} />
       ) : session ? (
-        <ActiveView user={user} session={session} onCheckout={handleCheckout} />
+        <ActiveView
+          user={user}
+          session={session}
+          onCheckout={() => handleCheckout()}
+          onSwitch={handleSwitch}
+        />
       ) : (
-        <IdleView user={user} onCheckin={handleCheckinClick} />
+        <IdleView
+          user={user}
+          todayEntries={todayEntries}
+          onCheckin={() => { setPickMode('checkin'); setError(''); setPicking(true); }}
+        />
       )}
 
       {picking && (
         <ProjectPicker
-          recentProjects={recent}
+          allProjects={allProjects}
           onSelect={handleProjectSelect}
           onCancel={() => setPicking(false)}
-          loading={loading}
+          busy={busy}
         />
       )}
     </div>
