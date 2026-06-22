@@ -4,10 +4,21 @@ import { api }                 from '../../api.js';
 import { useAuth }             from '../../auth.jsx';
 import AppShell                from '../AppShell.jsx';
 
+// ── Source / status display labels ────────────────────────────────────────────
+
 const SOURCE_LABELS = {
+  automatic:     'Automatic',
+  manual_worker: 'Manual',
+  manual_admin:  'Manual',
+  imported:      'Imported',
+};
+
+// Tooltip detail (shown in table cell)
+const SOURCE_DETAIL = {
   automatic:     'Automatic',
   manual_worker: 'Manual (worker)',
   manual_admin:  'Manual (admin)',
+  imported:      'Imported',
 };
 
 const STATUS_LABELS = {
@@ -17,6 +28,44 @@ const STATUS_LABELS = {
   rejected:  'Rejected',
 };
 
+// ── Date preset helpers ───────────────────────────────────────────────────────
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function weekRange(weekOffset = 0) {
+  const today = new Date();
+  // getUTCDay(): 0=Sun … (day+6)%7 gives 0=Mon … 6=Sun
+  const daysSinceMon = (today.getUTCDay() + 6) % 7;
+  const mon = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - daysSinceMon + weekOffset * 7));
+  const sun = new Date(Date.UTC(mon.getUTCFullYear(), mon.getUTCMonth(), mon.getUTCDate() + 6));
+  return { from: isoDate(mon), to: isoDate(sun) };
+}
+
+function monthRange() {
+  const today = new Date();
+  const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const to   = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+  return { from: isoDate(from), to: isoDate(to) };
+}
+
+const PRESETS = [
+  { value: 'this_week',  label: 'This Week' },
+  { value: 'prev_week',  label: 'Previous Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'custom',     label: 'Custom' },
+];
+
+function presetDates(preset) {
+  if (preset === 'this_week')  return weekRange(0);
+  if (preset === 'prev_week')  return weekRange(-1);
+  if (preset === 'this_month') return monthRange();
+  return null;  // custom — caller handles
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────────
+
 function formatDate(iso) {
   if (!iso) return '—';
   return iso.slice(0, 10);
@@ -24,7 +73,7 @@ function formatDate(iso) {
 
 function formatTime(iso) {
   if (!iso) return '—';
-  return iso.slice(11, 16);  // HH:MM from ISO
+  return iso.slice(11, 16);
 }
 
 function formatDuration(mins) {
@@ -34,10 +83,17 @@ function formatDuration(mins) {
   return `${h}h ${String(m).padStart(2, '0')}m`;
 }
 
-// Combine YYYY-MM-DD + HH:MM into an ISO string (treated as UTC)
 function toISO(date, time) {
   if (!date || !time) return '';
   return `${date}T${time}:00.000Z`;
+}
+
+// ── Default state ─────────────────────────────────────────────────────────────
+
+const DEFAULT_PRESET = 'this_week';
+
+function initialDates() {
+  return weekRange(0);
 }
 
 const EMPTY_FORM = {
@@ -49,25 +105,23 @@ const EMPTY_FORM = {
   notes:      '',
 };
 
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function TimeEntries() {
   const { user }   = useAuth();
   const navigate   = useNavigate();
-  const isAdmin    = user?.role === 'administrator';
 
   const [items,        setItems]        = useState([]);
   const [employees,    setEmployees]    = useState([]);
   const [projects,     setProjects]     = useState([]);
   const [loading,      setLoading]      = useState(true);
-  const [dateFrom,     setDateFrom]     = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 6);
-    return d.toISOString().slice(0, 10);
-  });
-  const [dateTo,       setDateTo]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [preset,       setPreset]       = useState(DEFAULT_PRESET);
+  const [dateFrom,     setDateFrom]     = useState(() => initialDates().from);
+  const [dateTo,       setDateTo]       = useState(() => initialDates().to);
   const [userFilter,   setUserFilter]   = useState('');
   const [projFilter,   setProjFilter]   = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
-  const [modal,        setModal]        = useState(null);  // { mode: 'create'|'edit', item? }
+  const [modal,        setModal]        = useState(null);
   const [confirm,      setConfirm]      = useState(null);
   const [form,         setForm]         = useState(EMPTY_FORM);
   const [saving,       setSaving]       = useState(false);
@@ -78,29 +132,29 @@ export default function TimeEntries() {
       api.get('/api/employees?status=active').catch(() => []),
       api.get('/api/projects?status=all').catch(() => []),
     ]).then(([emps, projs]) => {
-      setEmployees(Array.isArray(emps) ? emps : (emps.data ?? []));
-      setProjects(Array.isArray(projs) ? projs : (projs.data ?? []));
+      setEmployees(Array.isArray(emps) ? emps : (emps ?? []));
+      setProjects(Array.isArray(projs) ? projs : (projs ?? []));
     });
-    load();
+    load({});
   }, []);  // eslint-disable-line
 
-  async function load(filters = {}) {
+  async function load(overrides = {}) {
     setLoading(true);
     setError('');
     try {
-      const p = new URLSearchParams();
-      const df = filters.dateFrom  ?? dateFrom;
-      const dt = filters.dateTo    ?? dateTo;
-      const uf = filters.userFilter  ?? userFilter;
-      const pf = filters.projFilter  ?? projFilter;
-      const sf = filters.sourceFilter ?? sourceFilter;
+      const df  = overrides.dateFrom      ?? dateFrom;
+      const dt  = overrides.dateTo        ?? dateTo;
+      const uf  = overrides.userFilter    ?? userFilter;
+      const pf  = overrides.projFilter    ?? projFilter;
+      const sf  = overrides.sourceFilter  ?? sourceFilter;
+      const p   = new URLSearchParams();
       if (df) p.set('date_from',  df);
       if (dt) p.set('date_to',    dt);
       if (uf) p.set('user_id',    uf);
       if (pf) p.set('project_id', pf);
       if (sf) p.set('source',     sf);
       const data = await api.get('/api/time-entries' + (p.toString() ? `?${p}` : ''));
-      setItems(Array.isArray(data) ? data : (data.data ?? []));
+      setItems(Array.isArray(data) ? data : (data ?? []));
     } catch (e) {
       if (e.status === 401) navigate('/login', { replace: true });
       setError(e.message);
@@ -109,22 +163,38 @@ export default function TimeEntries() {
     }
   }
 
-  function applyFilters(updates) {
-    const next = { dateFrom, dateTo, userFilter, projFilter, sourceFilter, ...updates };
-    if ('dateFrom'    in updates) setDateFrom(updates.dateFrom);
-    if ('dateTo'      in updates) setDateTo(updates.dateTo);
-    if ('userFilter'  in updates) setUserFilter(updates.userFilter);
-    if ('projFilter'  in updates) setProjFilter(updates.projFilter);
-    if ('sourceFilter'in updates) setSourceFilter(updates.sourceFilter);
-    load(next);
+  function applyPreset(newPreset) {
+    setPreset(newPreset);
+    if (newPreset !== 'custom') {
+      const { from, to } = presetDates(newPreset);
+      setDateFrom(from);
+      setDateTo(to);
+      load({ dateFrom: from, dateTo: to });
+    }
+  }
+
+  function applyCustomDate(field, value) {
+    if (field === 'from') {
+      setDateFrom(value);
+      load({ dateFrom: value });
+    } else {
+      setDateTo(value);
+      load({ dateTo: value });
+    }
+  }
+
+  function applyFilter(field, value) {
+    if (field === 'user')   { setUserFilter(value);   load({ userFilter:   value }); }
+    if (field === 'proj')   { setProjFilter(value);   load({ projFilter:   value }); }
+    if (field === 'source') { setSourceFilter(value); load({ sourceFilter: value }); }
   }
 
   function handleReset() {
-    const today = new Date().toISOString().slice(0, 10);
-    const week  = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-    setDateFrom(week); setDateTo(today);
+    const { from, to } = weekRange(0);
+    setPreset(DEFAULT_PRESET);
+    setDateFrom(from); setDateTo(to);
     setUserFilter(''); setProjFilter(''); setSourceFilter('');
-    load({ dateFrom: week, dateTo: today, userFilter: '', projFilter: '', sourceFilter: '' });
+    load({ dateFrom: from, dateTo: to, userFilter: '', projFilter: '', sourceFilter: '' });
   }
 
   function openCreate() {
@@ -160,8 +230,7 @@ export default function TimeEntries() {
       const body = {
         user_id:    Number(form.user_id),
         project_id: Number(form.project_id),
-        start_time,
-        stop_time,
+        start_time, stop_time,
         notes: form.notes || null,
       };
       if (modal.mode === 'create') {
@@ -205,41 +274,69 @@ export default function TimeEntries() {
 
         {/* Toolbar */}
         <div className="toolbar" style={{ flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', whiteSpace: 'nowrap' }}>From</label>
-            <input type="date" className="form-input" style={{ height: 44, width: 148, padding: '0 10px' }}
-              value={dateFrom}
-              onChange={e => applyFilters({ dateFrom: e.target.value })} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', whiteSpace: 'nowrap' }}>To</label>
-            <input type="date" className="form-input" style={{ height: 44, width: 148, padding: '0 10px' }}
-              value={dateTo}
-              onChange={e => applyFilters({ dateTo: e.target.value })} />
-          </div>
-          <select className="form-select toolbar-select" style={{ width: 180 }}
-            value={userFilter} onChange={e => applyFilters({ userFilter: e.target.value })}>
+          {/* Date preset */}
+          <select
+            className="form-select toolbar-select"
+            style={{ width: 150 }}
+            value={preset}
+            onChange={e => applyPreset(e.target.value)}
+          >
+            {PRESETS.map(p => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
+
+          {/* Custom date range — only visible when Custom selected */}
+          {preset === 'custom' && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', whiteSpace: 'nowrap' }}>From</label>
+                <input type="date" className="form-input"
+                  style={{ height: 44, width: 148, padding: '0 10px' }}
+                  value={dateFrom}
+                  onChange={e => applyCustomDate('from', e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', whiteSpace: 'nowrap' }}>To</label>
+                <input type="date" className="form-input"
+                  style={{ height: 44, width: 148, padding: '0 10px' }}
+                  value={dateTo}
+                  onChange={e => applyCustomDate('to', e.target.value)} />
+              </div>
+            </>
+          )}
+
+          <select className="form-select toolbar-select" style={{ width: 170 }}
+            value={userFilter} onChange={e => applyFilter('user', e.target.value)}>
             <option value="">All Employees</option>
             {empOptions.map(e => (
               <option key={e.id} value={e.id}>{e.first_name} {e.last_name}</option>
             ))}
           </select>
-          <select className="form-select toolbar-select" style={{ width: 220 }}
-            value={projFilter} onChange={e => applyFilters({ projFilter: e.target.value })}>
+          <select className="form-select toolbar-select" style={{ width: 210 }}
+            value={projFilter} onChange={e => applyFilter('proj', e.target.value)}>
             <option value="">All Projects</option>
             {projOptions.map(p => (
               <option key={p.id} value={p.id}>[{p.project_code}] {p.name}</option>
             ))}
           </select>
-          <select className="form-select toolbar-select" style={{ width: 180 }}
-            value={sourceFilter} onChange={e => applyFilters({ sourceFilter: e.target.value })}>
+          <select className="form-select toolbar-select" style={{ width: 160 }}
+            value={sourceFilter} onChange={e => applyFilter('source', e.target.value)}>
             <option value="">All Sources</option>
             <option value="automatic">Automatic</option>
             <option value="manual_admin">Manual (admin)</option>
             <option value="manual_worker">Manual (worker)</option>
+            <option value="imported">Imported</option>
           </select>
           <button className="btn btn-outline toolbar-reset" onClick={handleReset}>Reset</button>
         </div>
+
+        {/* Date range summary when not custom */}
+        {preset !== 'custom' && (
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', padding: '4px 0 0 2px' }}>
+            {dateFrom} — {dateTo}
+          </div>
+        )}
 
         {error && !modal && <div className="error-banner">{error}</div>}
 
@@ -285,13 +382,12 @@ export default function TimeEntries() {
                     {formatDuration(item.rounded_duration_minutes)}
                   </td>
                   <td>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-grey-600)' }}>
+                    <span title={SOURCE_DETAIL[item.entry_source] ?? item.entry_source}
+                      style={{ fontSize: '0.75rem', color: 'var(--color-grey-600)', cursor: 'default' }}>
                       {SOURCE_LABELS[item.entry_source] ?? item.entry_source}
                     </span>
                   </td>
-                  <td>
-                    <StatusBadge status={item.status} />
-                  </td>
+                  <td><StatusBadge status={item.status} /></td>
                   <td>
                     <div className="td-actions">
                       <button className="btn-ghost" onClick={() => openEdit(item)}>Edit</button>
@@ -326,7 +422,6 @@ export default function TimeEntries() {
                       ))}
                     </select>
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Project *</label>
                     <select className="form-select" required value={form.project_id}
@@ -342,9 +437,7 @@ export default function TimeEntries() {
 
               {modal.mode === 'edit' && (
                 <div className="form-group">
-                  <div style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)', marginBottom: 4 }}>
-                    Employee
-                  </div>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--color-grey-600)', marginBottom: 4 }}>Employee</div>
                   <div style={{ fontWeight: 500 }}>{modal.item.employee_name}</div>
                   <div style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', marginTop: 2 }}>
                     {modal.item.project_code} — {modal.item.project_name}
@@ -388,9 +481,7 @@ export default function TimeEntries() {
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                    Cancel
-                  </button>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancel</button>
                   <button type="submit" className="btn btn-solid" disabled={saving}>
                     {saving ? 'Saving…' : 'Save'}
                   </button>

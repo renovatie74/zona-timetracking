@@ -12,17 +12,23 @@
 const INTERVAL_MS = 15 * 60 * 1000;  // 900 000 ms
 
 /**
- * Round check-in to nearest 15-minute boundary.
- * Math.round gives "round half up" at the 7m 30s midpoint, matching spec §6.1.
+ * Round check-in DOWN to the previous 15-minute boundary (floor).
+ * Spec §6 / Sprint 3A.1: start time always rounds DOWN, never up.
  *
- * Examples from spec:
- *   07:07 → 07:00  (7 min past: round down)
- *   07:08 → 07:15  (8 min past: round up)
- *   07:53 → 08:00  (8 min past 07:45: round up)
+ * Examples:
+ *   03:10 → 03:00  (10 min past: floor to 03:00)
+ *   07:07 → 07:00  (7 min past: floor to 07:00)
+ *   07:08 → 07:00  (8 min past: floor to 07:00)
+ *   07:15 → 07:15  (exactly on boundary: no change)
+ *   07:53 → 07:45  (8 min past 07:45: floor to 07:45)
+ *
+ * Note: Previous implementation used Math.round (NEAREST), changed to Math.floor (DOWN)
+ * per Sprint 3A.1 spec clarification. Existing manual entries pre-dating this change
+ * were corrected in DEV via SQL UPDATE.
  */
 export function roundCheckin(utcDate) {
   const ms = utcDate instanceof Date ? utcDate.getTime() : new Date(utcDate).getTime();
-  return new Date(Math.round(ms / INTERVAL_MS) * INTERVAL_MS);
+  return new Date(Math.floor(ms / INTERVAL_MS) * INTERVAL_MS);
 }
 
 /**

@@ -3,6 +3,7 @@ import { writeAudit }      from '../lib/audit.js';
 import { nextEmployeeCode } from '../lib/sequence.js';
 import { generateInvitationToken, invitationExpiry } from '../lib/tokens.js';
 import { sendInvitation } from '../lib/email.js';
+import { getManagerScope } from '../lib/scope.js';
 
 function validatePhone(phone) {
   if (!phone) return null;
@@ -36,6 +37,15 @@ export async function list(request, env) {
 
   const conditions = [];
   const params     = [];
+
+  // Manager visibility: restrict to employees in supervised teams
+  if (request.user.role === 'manager') {
+    const scope = await getManagerScope(env.DB, request.user.id);
+    if (scope.userIds.length === 0) return Response.json({ data: [] });
+    const ph = scope.userIds.map(() => '?').join(',');
+    conditions.push(`u.id IN (${ph})`);
+    params.push(...scope.userIds);
+  }
 
   // Status filter — default (no param) = active + pending (exclude inactive)
   if (status === 'active') {

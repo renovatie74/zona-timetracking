@@ -6,7 +6,11 @@ import { getManagerScope }  from '../lib/scope.js';
 const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
-const VALID_SOURCES  = ['automatic', 'manual_worker', 'manual_admin'];
+// 'imported' reserved for future bulk import feature (Sprint 5+).
+// DB CHECK constraint still lists only automatic/manual_worker/manual_admin — no migration
+// needed until actual import inserts are built. Filter logic accepts 'imported' queries now
+// so frontend/API clients don't need changes when imports land.
+const VALID_SOURCES  = ['automatic', 'manual_worker', 'manual_admin', 'imported'];
 const VALID_STATUSES = ['draft', 'submitted', 'approved', 'rejected'];
 
 const SELECT_COLS = `
