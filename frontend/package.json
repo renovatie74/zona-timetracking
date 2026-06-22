@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev":     "vite",
-    "build":   "vite build",
-    "preview": "vite preview"
+    "dev":            "vite",
+    "build":          "vite build",
+    "preview":        "vite preview",
+    "deploy:dev":     "vite build && wrangler pages deploy dist --project-name timetracking-dev --commit-dirty=true",
+    "deploy:prod":    "vite build && wrangler pages deploy dist --project-name timetracking-prod --commit-dirty=true"
   },
   "dependencies": {
     "react":            "^18.3.1",
