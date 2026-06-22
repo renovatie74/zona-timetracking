@@ -11,6 +11,7 @@ import Projects        from './screens/admin/Projects.jsx';
 import Employees       from './screens/admin/Employees.jsx';
 import Teams           from './screens/admin/Teams.jsx';
 import Clients         from './screens/admin/Clients.jsx';
+import TimeEntries     from './screens/admin/TimeEntries.jsx';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -44,7 +45,8 @@ export default function App() {
           <Route path="/clients"    element={<AdminOrManagerRoute><Clients /></AdminOrManagerRoute>} />
           <Route path="/projects"   element={<AdminOrManagerRoute><Projects /></AdminOrManagerRoute>} />
           <Route path="/employees"  element={<AdminOrManagerRoute><Employees /></AdminOrManagerRoute>} />
-          <Route path="/teams"      element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
+          <Route path="/teams"         element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
+          <Route path="/time-entries" element={<AdminOrManagerRoute><TimeEntries /></AdminOrManagerRoute>} />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

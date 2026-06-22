@@ -63,6 +63,15 @@ function IconProfile() {
   );
 }
 
+function IconTimeEntries() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <circle cx="10" cy="10" r="8"/>
+      <path d="M10 6v4l2.5 2.5"/>
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -86,12 +95,13 @@ export default function AppShell({ children, title }) {
   const isAdminOrMgr = ['administrator', 'manager'].includes(user?.role);
 
   const navLinks = [
-    { to: '/dashboard',  label: 'Dashboard',  Icon: IconDashboard, always: true },
-    { to: '/clients',    label: 'Clients',    Icon: IconClients,   always: false },
-    { to: '/projects',   label: 'Projects',   Icon: IconProjects,  always: false },
-    { to: '/employees',  label: 'Employees',  Icon: IconEmployees, always: false },
-    { to: '/teams',      label: 'Teams',      Icon: IconTeams,     always: false },
-    { to: '/profile',    label: 'Profile',    Icon: IconProfile,   always: true },
+    { to: '/dashboard',     label: 'Dashboard',    Icon: IconDashboard,    always: true  },
+    { to: '/clients',       label: 'Clients',      Icon: IconClients,      always: false },
+    { to: '/projects',      label: 'Projects',     Icon: IconProjects,     always: false },
+    { to: '/employees',     label: 'Employees',    Icon: IconEmployees,    always: false },
+    { to: '/teams',         label: 'Teams',        Icon: IconTeams,        always: false },
+    { to: '/time-entries',  label: 'Time Entries', Icon: IconTimeEntries,  always: false },
+    { to: '/profile',       label: 'Profile',      Icon: IconProfile,      always: true  },
   ].filter(l => l.always || isAdminOrMgr);
 
   return (

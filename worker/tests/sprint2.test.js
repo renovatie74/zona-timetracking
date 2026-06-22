@@ -32,6 +32,8 @@ import migration09 from '../migrations/0009_projects_v2.sql?raw';
 import migration10 from '../migrations/0010_clients.sql?raw';
 import migration11 from '../migrations/0011_projects_client_id.sql?raw';
 import migration12 from '../migrations/0012_employee_name_split.sql?raw';
+import migration13 from '../migrations/0013_project_assignments.sql?raw';
+import migration14 from '../migrations/0014_time_entry_status.sql?raw';
 
 async function applyMigration(sql) {
   const statements = sql
@@ -96,7 +98,7 @@ beforeAll(async () => {
   const migrations = [
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
-    migration10, migration11, migration12,
+    migration10, migration11, migration12, migration13, migration14,
   ];
   for (const sql of migrations) await applyMigration(sql);
 

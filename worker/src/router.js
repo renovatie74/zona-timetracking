@@ -1,9 +1,10 @@
 import { Router } from 'itty-router';
-import * as authRoutes     from './routes/auth.js';
-import * as teamRoutes     from './routes/teams.js';
-import * as employeeRoutes from './routes/employees.js';
-import * as projectRoutes  from './routes/projects.js';
-import * as clientRoutes   from './routes/clients.js';
+import * as authRoutes        from './routes/auth.js';
+import * as teamRoutes        from './routes/teams.js';
+import * as employeeRoutes    from './routes/employees.js';
+import * as projectRoutes     from './routes/projects.js';
+import * as clientRoutes      from './routes/clients.js';
+import * as timeEntryRoutes   from './routes/time_entries.js';
 
 export const router = Router();
 
@@ -49,21 +50,25 @@ router.post(  '/api/clients',     clientRoutes.create);
 router.put(   '/api/clients/:id', clientRoutes.update);
 router.delete('/api/clients/:id', clientRoutes.remove);
 
-// ── Project routes (Sprint 2) ─────────────────────────────────────────────────
-router.get(   '/api/projects',     projectRoutes.list);
-router.get(   '/api/projects/:id', projectRoutes.get);
-router.post(  '/api/projects',     projectRoutes.create);
-router.put(   '/api/projects/:id', projectRoutes.update);
-router.delete('/api/projects/:id', projectRoutes.remove);
+// ── Project routes (Sprint 2 + 3A assignments) ───────────────────────────────
+router.get(   '/api/projects',                    projectRoutes.list);
+router.get(   '/api/projects/:id',                projectRoutes.get);
+router.post(  '/api/projects',                    projectRoutes.create);
+router.put(   '/api/projects/:id',                projectRoutes.update);
+router.delete('/api/projects/:id',                projectRoutes.remove);
+router.get(   '/api/projects/:id/assignments',    projectRoutes.listAssignments);
+router.put(   '/api/projects/:id/assignments',    projectRoutes.setAssignments);
 
-// ── Time entry routes (Sprint 3) ──────────────────────────────────────────────
+// ── Time entry routes (Sprint 3A — manual CRUD) ───────────────────────────────
+router.get(   '/api/time-entries',      timeEntryRoutes.list);
+router.post(  '/api/time-entries',      timeEntryRoutes.create);
+router.put(   '/api/time-entries/:id',  timeEntryRoutes.update);
+router.delete('/api/time-entries/:id',  timeEntryRoutes.remove);
+
+// ── Time entry routes (Sprint 3B — check-in / check-out, reserved) ───────────
 // router.post('/api/time-entries/checkin',  timeEntryRoutes.checkin);
 // router.post('/api/time-entries/checkout', timeEntryRoutes.checkout);
 // router.get('/api/time-entries/active',    timeEntryRoutes.active);
-// router.get('/api/time-entries',           timeEntryRoutes.list);
-// router.patch('/api/time-entries/:id',     timeEntryRoutes.update);
-// router.post('/api/time-entries/manual',   timeEntryRoutes.manual);
-// router.delete('/api/time-entries/:id',    timeEntryRoutes.remove);
 
 // ── Note routes (Sprint 4) ────────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);

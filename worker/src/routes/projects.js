@@ -1,6 +1,7 @@
-import { requireRole }    from '../middleware/auth.js';
-import { writeAudit }     from '../lib/audit.js';
+import { requireRole }     from '../middleware/auth.js';
+import { writeAudit }      from '../lib/audit.js';
 import { nextProjectCode } from '../lib/sequence.js';
+import { getManagerScope } from '../lib/scope.js';
 
 const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
@@ -24,6 +25,15 @@ export async function list(request, env) {
 
   const conditions = ['p.is_active = 1'];
   const params     = [];
+
+  // Manager visibility: restrict to projects reachable via their team assignments
+  if (request.user.role === 'manager') {
+    const scope = await getManagerScope(env.DB, request.user.id);
+    if (scope.projectIds.length === 0) return Response.json({ data: [] });
+    const ph = scope.projectIds.map(() => '?').join(',');
+    conditions.push(`p.id IN (${ph})`);
+    params.push(...scope.projectIds);
+  }
 
   // Status filter — default (no param) = planning + active
   if (status === 'all') {
@@ -182,4 +192,70 @@ export async function remove(request, env) {
   });
 
   return Response.json({ ok: true });
+}
+
+// ── Assignment endpoints (Sprint 3A) ──────────────────────────────────────────
+
+export async function listAssignments(request, env) {
+  const guard = await ADMIN_OR_MGR(request, env);
+  if (guard) return guard;
+
+  const id = request.params.id;
+  const project = await env.DB.prepare('SELECT id FROM Projects WHERE id = ?').bind(id).first();
+  if (!project) return Response.json({ error: 'Project not found' }, { status: 404 });
+
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.employee_number AS employee_code,
+            (u.first_name || ' ' || u.last_name) AS name, r.name AS role
+     FROM   ProjectAssignments pa
+     JOIN   Users u ON u.id = pa.user_id
+     JOIN   Roles r ON r.id = u.role_id
+     WHERE  pa.project_id = ?
+     ORDER  BY u.first_name, u.last_name`,
+  ).bind(id).all();
+
+  return Response.json({ data: results });
+}
+
+export async function setAssignments(request, env) {
+  const guard = await ADMIN(request, env);
+  if (guard) return guard;
+
+  const id = request.params.id;
+  const project = await env.DB.prepare('SELECT id FROM Projects WHERE id = ?').bind(id).first();
+  if (!project) return Response.json({ error: 'Project not found' }, { status: 404 });
+
+  const { user_ids = [] } = await request.json();
+  if (!Array.isArray(user_ids)) {
+    return Response.json({ error: 'user_ids must be an array' }, { status: 400 });
+  }
+
+  const now = new Date().toISOString();
+
+  // Replace full assignment list atomically via D1 batch
+  const deleteStmt  = env.DB.prepare('DELETE FROM ProjectAssignments WHERE project_id = ?').bind(id);
+  const insertStmts = user_ids.map(uid =>
+    env.DB.prepare(
+      'INSERT OR IGNORE INTO ProjectAssignments (project_id, user_id, created_at) VALUES (?, ?, ?)',
+    ).bind(Number(id), Number(uid), now),
+  );
+
+  await env.DB.batch([deleteStmt, ...insertStmts]);
+
+  await writeAudit(env.DB, {
+    actorId: request.user.id, action: 'assignments_updated', entityType: 'project', entityId: Number(id),
+    oldValues: null, newValues: { user_ids },
+  });
+
+  const { results } = await env.DB.prepare(
+    `SELECT u.id, u.employee_number AS employee_code,
+            (u.first_name || ' ' || u.last_name) AS name, r.name AS role
+     FROM   ProjectAssignments pa
+     JOIN   Users u ON u.id = pa.user_id
+     JOIN   Roles r ON r.id = u.role_id
+     WHERE  pa.project_id = ?
+     ORDER  BY u.first_name, u.last_name`,
+  ).bind(id).all();
+
+  return Response.json({ data: results });
 }

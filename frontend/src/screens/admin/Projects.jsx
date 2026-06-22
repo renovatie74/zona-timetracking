@@ -19,6 +19,8 @@ export default function Projects() {
 
   const [items,        setItems]        = useState([]);
   const [clients,      setClients]      = useState([]);
+  const [employees,    setEmployees]    = useState([]);    // active employees for assignment list
+  const [assignedIds,  setAssignedIds]  = useState([]);    // currently assigned user_ids in edit modal
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');   // '' = planning+active (default)
@@ -32,6 +34,9 @@ export default function Projects() {
   useEffect(() => {
     load('', '', '');
     api.get('/api/clients').then(setClients).catch(() => {});
+    api.get('/api/employees?status=active').then(emps => {
+      setEmployees(Array.isArray(emps) ? emps : (emps ?? []));
+    }).catch(() => {});
   }, []);  // eslint-disable-line
 
   async function load(q, sf, cf) {
@@ -86,8 +91,14 @@ export default function Projects() {
       start_date: item.start_date ?? '',
       end_date:  item.end_date   ?? '',
     });
+    setAssignedIds([]);
     setError('');
     setModal({ mode: 'edit', id: item.id, item });
+    // Load current assignments asynchronously
+    api.get(`/api/projects/${item.id}/assignments`).then(data => {
+      const rows = Array.isArray(data) ? data : (data ?? []);
+      setAssignedIds(rows.map(r => r.id));
+    }).catch(() => {});
   }
 
   async function handleSave(e) {
@@ -103,7 +114,10 @@ export default function Projects() {
       if (modal.mode === 'create') {
         await api.post('/api/projects', body);
       } else {
-        await api.put(`/api/projects/${modal.id}`, body);
+        await Promise.all([
+          api.put(`/api/projects/${modal.id}`, body),
+          api.put(`/api/projects/${modal.id}/assignments`, { user_ids: assignedIds }),
+        ]);
       }
       setModal(null);
       load(search, statusFilter, clientFilter);
@@ -262,6 +276,56 @@ export default function Projects() {
                 <input className="form-input" type="date" value={form.end_date}
                   onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
               </div>
+
+              {modal.mode === 'edit' && isAdmin && (
+                <div className="form-group">
+                  <label className="form-label">Assigned Employees</label>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-grey-600)', margin: '0 0 8px' }}>
+                    Leave empty to allow all active employees to log time.
+                  </p>
+                  <div style={{
+                    maxHeight: 180, overflowY: 'auto',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 6, padding: '6px 0',
+                  }}>
+                    {employees.length === 0 ? (
+                      <div style={{ padding: '8px 12px', color: 'var(--color-grey-600)', fontSize: '0.875rem' }}>
+                        No active employees
+                      </div>
+                    ) : employees.map(emp => {
+                      const checked = assignedIds.includes(emp.id);
+                      return (
+                        <label key={emp.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '6px 12px', cursor: 'pointer',
+                          background: checked ? 'rgba(200,164,106,0.06)' : undefined,
+                        }}>
+                          <input type="checkbox" checked={checked}
+                            onChange={ev => {
+                              if (ev.target.checked) {
+                                setAssignedIds(ids => [...ids, emp.id]);
+                              } else {
+                                setAssignedIds(ids => ids.filter(id => id !== emp.id));
+                              }
+                            }}
+                          />
+                          <span style={{ fontSize: '0.875rem' }}>
+                            <strong>{emp.first_name} {emp.last_name}</strong>
+                            <span style={{ marginLeft: 6, fontSize: '0.8rem', color: 'var(--color-grey-600)' }}>
+                              {emp.employee_code}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {assignedIds.length > 0 && (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--color-grey-600)', margin: '6px 0 0' }}>
+                      {assignedIds.length} employee{assignedIds.length !== 1 ? 's' : ''} assigned
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
                 <div>
