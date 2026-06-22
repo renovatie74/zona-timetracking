@@ -3,6 +3,7 @@ import { useNavigate }         from 'react-router-dom';
 import { api }                 from '../../api.js';
 import { useAuth }             from '../../auth.jsx';
 import AppShell                from '../AppShell.jsx';
+import { validateTime, stepTime, roundingPreview } from '../../lib/timeInput.js';
 
 // ── Source / status display labels ────────────────────────────────────────────
 
@@ -88,6 +89,17 @@ function toISO(date, time) {
   return `${date}T${time}:00.000Z`;
 }
 
+// ── Time input helpers ────────────────────────────────────────────────────────
+
+function fmtMins(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+const START_QUICK = ['07:00', '08:00', '09:00'];
+const END_QUICK   = ['15:00', '16:00', '17:00', '18:00'];
+
 // ── Default state ─────────────────────────────────────────────────────────────
 
 const DEFAULT_PRESET = 'this_week';
@@ -126,6 +138,8 @@ export default function TimeEntries() {
   const [form,         setForm]         = useState(EMPTY_FORM);
   const [saving,       setSaving]       = useState(false);
   const [error,        setError]        = useState('');
+  const [startErr,     setStartErr]     = useState('');
+  const [endErr,       setEndErr]       = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -199,7 +213,7 @@ export default function TimeEntries() {
 
   function openCreate() {
     setForm({ ...EMPTY_FORM, date: new Date().toISOString().slice(0, 10) });
-    setError('');
+    setError(''); setStartErr(''); setEndErr('');
     setModal({ mode: 'create' });
   }
 
@@ -212,14 +226,20 @@ export default function TimeEntries() {
       end_time:   item.stop_time?.slice(11, 16) ?? '',
       notes:      item.notes ?? '',
     });
-    setError('');
+    setError(''); setStartErr(''); setEndErr('');
     setModal({ mode: 'edit', item });
   }
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!form.start_time || !form.end_time) {
-      setError('Start time and end time are required');
+    const se = validateTime(form.start_time);
+    const ee = validateTime(form.end_time);
+    setStartErr(se ?? '');
+    setEndErr(ee ?? '');
+    if (se || ee) return;
+    // cross-field: end must be after start (same-day)
+    if (form.start_time >= form.end_time) {
+      setEndErr('End time must be after start time.');
       return;
     }
     setSaving(true);
@@ -452,17 +472,71 @@ export default function TimeEntries() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div className="form-group">
+                {/* Start Time */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Start Time *</label>
-                  <input className="form-input" type="time" required value={form.start_time}
-                    onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <button type="button" className="btn-step" aria-label="−15 min"
+                      onClick={() => setForm(f => ({ ...f, start_time: stepTime(f.start_time || '08:00', -15) }))}>−</button>
+                    <input className={`form-input${startErr ? ' error' : ''}`}
+                      type="text" placeholder="HH:MM"
+                      value={form.start_time}
+                      onChange={e => { setStartErr(''); setForm(f => ({ ...f, start_time: e.target.value })); }}
+                      onBlur={() => setStartErr(validateTime(form.start_time) ?? '')}
+                      style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', flex: 1 }} />
+                    <button type="button" className="btn-step" aria-label="+15 min"
+                      onClick={() => setForm(f => ({ ...f, start_time: stepTime(f.start_time || '07:45', 15) }))}>+</button>
+                  </div>
+                  {startErr && <div className="form-error">{startErr}</div>}
+                  <div className="time-quick-row">
+                    {START_QUICK.map(t => (
+                      <button key={t} type="button" className="btn-time-quick"
+                        onClick={() => { setStartErr(''); setForm(f => ({ ...f, start_time: t })); }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="form-group">
+
+                {/* End Time */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">End Time *</label>
-                  <input className="form-input" type="time" required value={form.end_time}
-                    onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <button type="button" className="btn-step" aria-label="−15 min"
+                      onClick={() => setForm(f => ({ ...f, end_time: stepTime(f.end_time || '16:00', -15) }))}>−</button>
+                    <input className={`form-input${endErr ? ' error' : ''}`}
+                      type="text" placeholder="HH:MM"
+                      value={form.end_time}
+                      onChange={e => { setEndErr(''); setForm(f => ({ ...f, end_time: e.target.value })); }}
+                      onBlur={() => setEndErr(validateTime(form.end_time) ?? '')}
+                      style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', flex: 1 }} />
+                    <button type="button" className="btn-step" aria-label="+15 min"
+                      onClick={() => setForm(f => ({ ...f, end_time: stepTime(f.end_time || '15:45', 15) }))}>+</button>
+                  </div>
+                  {endErr && <div className="form-error">{endErr}</div>}
+                  <div className="time-quick-row">
+                    {END_QUICK.map(t => (
+                      <button key={t} type="button" className="btn-time-quick"
+                        onClick={() => { setEndErr(''); setForm(f => ({ ...f, end_time: t })); }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              {/* Rounding preview */}
+              {(() => {
+                const preview = roundingPreview(form.start_time, form.end_time);
+                if (!preview) return null;
+                return (
+                  <div className="rounding-preview">
+                    <span>Actual: <strong>{fmtMins(preview.actual)}</strong></span>
+                    <span style={{ color: 'var(--color-grey-600)', margin: '0 6px' }}>·</span>
+                    <span>Rounded: <strong>{fmtMins(preview.rounded)}</strong></span>
+                  </div>
+                );
+              })()}
 
               <div className="form-group">
                 <label className="form-label">Notes</label>

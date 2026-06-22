@@ -624,3 +624,71 @@ tbody tr:hover { background: #FDFCFA; }
   color: var(--color-grey-600);
   margin-top: var(--space-1);
 }
+
+.form-error {
+  font-size: 0.8125rem;
+  color: var(--color-red);
+  margin-top: 4px;
+}
+
+/* ── Time input controls ───────────────────────────────────────────────────── */
+
+.btn-step {
+  flex-shrink: 0;
+  width: 30px;
+  height: 38px;
+  border: 1.5px solid var(--color-grey-200);
+  border-radius: 6px;
+  background: var(--color-white);
+  color: var(--color-grey-600);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-step:hover:not(:disabled) {
+  border-color: var(--color-gold);
+  color: var(--color-charcoal);
+}
+
+.time-quick-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-time-quick {
+  padding: 3px 8px;
+  border: 1.5px solid var(--color-grey-200);
+  border-radius: 5px;
+  background: var(--color-white);
+  color: var(--color-grey-600);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  white-space: nowrap;
+}
+
+.btn-time-quick:hover {
+  border-color: var(--color-gold);
+  color: var(--color-charcoal);
+  background: var(--color-gold-bg);
+}
+
+.rounding-preview {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: var(--color-grey-50);
+  border: 1px solid var(--color-grey-200);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--color-charcoal);
+  display: flex;
+  align-items: center;
+}

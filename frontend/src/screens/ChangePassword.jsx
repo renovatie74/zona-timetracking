@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { api } from '../api.js';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function ChangePassword() {
   const { logout }            = useAuth();
@@ -65,10 +66,8 @@ export default function ChangePassword() {
 
             <div className="form-group">
               <label className="form-label" htmlFor="current">Current password</label>
-              <input
+              <PasswordInput
                 id="current"
-                className="form-input"
-                type="password"
                 autoComplete="current-password"
                 required
                 value={current}
@@ -78,10 +77,8 @@ export default function ChangePassword() {
 
             <div className="form-group">
               <label className="form-label" htmlFor="password">New password</label>
-              <input
+              <PasswordInput
                 id="password"
-                className="form-input"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -92,10 +89,8 @@ export default function ChangePassword() {
 
             <div className="form-group">
               <label className="form-label" htmlFor="confirm">Confirm new password</label>
-              <input
+              <PasswordInput
                 id="confirm"
-                className="form-input"
-                type="password"
                 autoComplete="new-password"
                 required
                 value={confirm}

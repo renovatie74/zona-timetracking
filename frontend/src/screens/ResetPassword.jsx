@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function ResetPassword() {
   const [params]              = useSearchParams();
@@ -64,10 +65,8 @@ export default function ResetPassword() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="password">New password</label>
-            <input
+            <PasswordInput
               id="password"
-              className="form-input"
-              type="password"
               autoComplete="new-password"
               required
               minLength={8}
@@ -78,10 +77,8 @@ export default function ResetPassword() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="confirm">Confirm new password</label>
-            <input
+            <PasswordInput
               id="confirm"
-              className="form-input"
-              type="password"
               autoComplete="new-password"
               required
               value={confirm}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { api } from '../api.js';
+import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function ActivateAccount() {
   const [params]              = useSearchParams();
@@ -71,10 +72,8 @@ export default function ActivateAccount() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="password">Password</label>
-            <input
+            <PasswordInput
               id="password"
-              className="form-input"
-              type="password"
               autoComplete="new-password"
               required
               minLength={8}
@@ -85,10 +84,8 @@ export default function ActivateAccount() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="confirm">Confirm password</label>
-            <input
+            <PasswordInput
               id="confirm"
-              className="form-input"
-              type="password"
               autoComplete="new-password"
               required
               value={confirm}
