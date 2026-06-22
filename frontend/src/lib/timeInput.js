@@ -18,7 +18,17 @@ export function validateTime(val) {
 export function stepTime(hhmm, delta) {
   if (!TIME_RE.test(hhmm)) return hhmm;
   const [h, m] = hhmm.split(':').map(Number);
-  let total = h * 60 + m + delta;
+  let total = h * 60 + m;
+  if (total % 15 === 0) {
+    // Already on a boundary — step normally
+    total += delta;
+  } else if (delta > 0) {
+    // Snap UP to the next 15-min boundary
+    total = Math.ceil(total / 15) * 15;
+  } else {
+    // Snap DOWN to the previous 15-min boundary
+    total = Math.floor(total / 15) * 15;
+  }
   total = ((total % 1440) + 1440) % 1440;
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }

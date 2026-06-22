@@ -67,6 +67,27 @@ describe('stepTime', () => {
     expect(stepTime('', 15)).toBe('');
     expect(stepTime('abc', 15)).toBe('abc');
   });
+
+  it('TC-TI13: + snaps UP to next boundary when not on a boundary', () => {
+    expect(stepTime('08:12', 15)).toBe('08:15');
+    expect(stepTime('08:27', 15)).toBe('08:30');
+    expect(stepTime('08:01', 15)).toBe('08:15');
+    expect(stepTime('08:14', 15)).toBe('08:15');
+  });
+
+  it('TC-TI14: - snaps DOWN to previous boundary when not on a boundary', () => {
+    expect(stepTime('08:12', -15)).toBe('08:00');
+    expect(stepTime('08:27', -15)).toBe('08:15');
+    expect(stepTime('08:16', -15)).toBe('08:15');
+    expect(stepTime('08:44', -15)).toBe('08:30');
+  });
+
+  it('TC-TI15: already on boundary steps normally', () => {
+    expect(stepTime('08:30', 15)).toBe('08:45');
+    expect(stepTime('08:30', -15)).toBe('08:15');
+    expect(stepTime('08:00', 15)).toBe('08:15');
+    expect(stepTime('08:45', -15)).toBe('08:30');
+  });
 });
 
 // ── roundingPreview ───────────────────────────────────────────────────────────
