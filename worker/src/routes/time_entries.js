@@ -1,6 +1,6 @@
 import { requireRole, requireAuth } from '../middleware/auth.js';
 import { writeAudit }               from '../lib/audit.js';
-import { computeRounded }           from '../lib/rounding.js';
+import { computeRounded, MIN_DURATION_MINUTES } from '../lib/rounding.js';
 import { getManagerScope }          from '../lib/scope.js';
 
 const ADMIN        = requireRole('administrator');
@@ -95,6 +95,14 @@ export async function create(request, env) {
   if (isNaN(stop.getTime()))  return Response.json({ error: 'Invalid stop_time' },  { status: 400 });
   if (stop <= start) return Response.json({ error: 'stop_time must be after start_time' }, { status: 400 });
 
+  const durationMins = Math.round((stop.getTime() - start.getTime()) / 60_000);
+  if (durationMins < MIN_DURATION_MINUTES) {
+    return Response.json(
+      { error: `Entry duration is too short. Minimum duration is ${MIN_DURATION_MINUTES} minutes.` },
+      { status: 422 },
+    );
+  }
+
   // Manager: can only create entries for employees in supervised teams
   if (request.user.role === 'manager') {
     const scope = await getManagerScope(env.DB, request.user.id);
@@ -173,6 +181,14 @@ export async function update(request, env) {
   if (isNaN(start.getTime())) return Response.json({ error: 'Invalid start_time' }, { status: 400 });
   if (isNaN(stop.getTime()))  return Response.json({ error: 'Invalid stop_time' },  { status: 400 });
   if (stop <= start) return Response.json({ error: 'stop_time must be after start_time' }, { status: 400 });
+
+  const updDuration = Math.round((stop.getTime() - start.getTime()) / 60_000);
+  if (updDuration < MIN_DURATION_MINUTES) {
+    return Response.json(
+      { error: `Entry duration is too short. Minimum duration is ${MIN_DURATION_MINUTES} minutes.` },
+      { status: 422 },
+    );
+  }
 
   const rounded = computeRounded(start, stop);
   const now = new Date().toISOString();
@@ -348,6 +364,13 @@ export async function checkout(request, env) {
   const stop   = new Date();
   const rounded = computeRounded(start, stop);
   const now    = stop.toISOString();
+
+  if (rounded.duration_minutes < MIN_DURATION_MINUTES) {
+    return Response.json(
+      { error: `Session is too short to be recorded. Minimum work duration is ${MIN_DURATION_MINUTES} minutes.` },
+      { status: 422 },
+    );
+  }
 
   const checkout_gps_status  = gps?.status   ?? 'unavailable';
   const checkout_lat         = gps?.lat       ?? null;

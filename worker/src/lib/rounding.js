@@ -1,79 +1,50 @@
 /**
- * Time rounding — authoritative implementation (spec §6).
+ * Time rounding — authoritative implementation (spec §6, revised Sprint 3B.2).
  *
- * Check-in:  round to NEAREST 15-minute boundary (boundary at 7m 30s past each quarter).
- * Check-out: round UP to NEXT 15-minute boundary (if exactly on boundary: no change).
- *
- * All inputs and outputs are UTC Date objects or ISO strings.
- * All computations happen on UTC milliseconds — no timezone arithmetic needed here.
- * Dubai (UTC+4) offset is applied only in SQL queries for week-boundary calculations.
- */
-
-const INTERVAL_MS = 15 * 60 * 1000;  // 900 000 ms
-
-/**
- * Round check-in DOWN to the previous 15-minute boundary (floor).
- * Spec §6 / Sprint 3A.1: start time always rounds DOWN, never up.
+ * Rule: store actual start/stop times; round ONLY the total duration.
+ * Threshold: 0–7 min past a 15-min boundary → round DOWN; 8–14 → round UP.
+ * This is equivalent to Math.round(minutes / 15) * 15.
  *
  * Examples:
- *   03:10 → 03:00  (10 min past: floor to 03:00)
- *   07:07 → 07:00  (7 min past: floor to 07:00)
- *   07:08 → 07:00  (8 min past: floor to 07:00)
- *   07:15 → 07:15  (exactly on boundary: no change)
- *   07:53 → 07:45  (8 min past 07:45: floor to 07:45)
+ *   1h 00m → 1h 00m (60 min → 60)
+ *   1h 05m → 1h 00m (65 min → 60)
+ *   1h 07m → 1h 00m (67 min → 60)
+ *   1h 08m → 1h 15m (68 min → 75)
+ *   1h 14m → 1h 15m (74 min → 75)
+ *   1h 22m → 1h 15m (82 min → 75)
+ *   1h 23m → 1h 30m (83 min → 90)
  *
- * Note: Previous implementation used Math.round (NEAREST), changed to Math.floor (DOWN)
- * per Sprint 3A.1 spec clarification. Existing manual entries pre-dating this change
- * were corrected in DEV via SQL UPDATE.
+ * Minimum duration: 10 minutes. Shorter sessions are rejected at checkout.
  */
-export function roundCheckin(utcDate) {
-  const ms = utcDate instanceof Date ? utcDate.getTime() : new Date(utcDate).getTime();
-  return new Date(Math.floor(ms / INTERVAL_MS) * INTERVAL_MS);
+
+export const MIN_DURATION_MINUTES = 10;
+
+/**
+ * Round a duration (in whole minutes) to the nearest 15-minute increment.
+ * Threshold is 7.5 minutes, so 7 → rounds down, 8 → rounds up.
+ */
+export function roundDuration(durationMinutes) {
+  return Math.round(durationMinutes / 15) * 15;
 }
 
 /**
- * Round check-out UP to the next 15-minute boundary.
- * If already exactly on a boundary: no change.
- * Math.ceil handles this correctly.
- *
- * Examples from spec:
- *   15:00 → 15:00  (exactly on boundary: no change)
- *   15:01 → 15:15  (after boundary: ceil up)
- *   15:59 → 16:00  (after boundary: ceil up)
- */
-export function roundCheckout(utcDate) {
-  const ms = utcDate instanceof Date ? utcDate.getTime() : new Date(utcDate).getTime();
-  if (ms % INTERVAL_MS === 0) return new Date(ms);
-  return new Date(Math.ceil(ms / INTERVAL_MS) * INTERVAL_MS);
-}
-
-/**
- * Compute rounded duration in whole minutes.
- * Both inputs must be rounded Date objects (output of roundCheckin/roundCheckout).
- */
-export function roundedDurationMinutes(roundedStart, roundedStop) {
-  const startMs = roundedStart instanceof Date ? roundedStart.getTime() : new Date(roundedStart).getTime();
-  const stopMs  = roundedStop  instanceof Date ? roundedStop.getTime()  : new Date(roundedStop).getTime();
-  return Math.round((stopMs - startMs) / 60_000);
-}
-
-/**
- * Apply all rounding to a completed time entry and return the derived fields.
+ * Apply duration-based rounding to a completed time entry.
  * Called at check-out and whenever an entry is edited.
+ *
+ * rounded_start_time / rounded_stop_time are kept equal to the actual
+ * times (for audit trail compatibility); payroll uses rounded_duration_minutes.
  */
 export function computeRounded(startTime, stopTime) {
   const start = new Date(startTime);
   const stop  = new Date(stopTime);
 
-  const roundedStart    = roundCheckin(start);
-  const roundedStop     = roundCheckout(stop);
   const durationMinutes = Math.round((stop.getTime() - start.getTime()) / 60_000);
-  const roundedDuration = roundedDurationMinutes(roundedStart, roundedStop);
+  const roundedDuration = roundDuration(durationMinutes);
 
   return {
     duration_minutes:         durationMinutes,
-    rounded_start_time:       roundedStart.toISOString(),
-    rounded_stop_time:        roundedStop.toISOString(),
+    rounded_start_time:       start.toISOString(),
+    rounded_stop_time:        stop.toISOString(),
     rounded_duration_minutes: roundedDuration,
   };
 }

@@ -1,176 +1,146 @@
 /**
- * Rounding unit tests — Sprint 3A.1
+ * Rounding unit tests — updated Sprint 3B.2
  *
- * Business rules (spec §6 / Sprint 3A.1):
- *   Check-in  → FLOOR to nearest 15-min boundary (always rounds DOWN)
- *   Check-out → CEIL  to next   15-min boundary  (always rounds UP; exact = no change)
+ * New rule (§6 revised): round ONLY the total duration to the nearest 15 min.
+ * Threshold: 0–7 min past a 15-min boundary → round DOWN; 8–14 → round UP.
+ * Equivalent to Math.round(minutes / 15) * 15.
+ *
+ * Minimum duration: MIN_DURATION_MINUTES (10 min).
  */
 
 import { describe, it, expect } from 'vitest';
-import { roundCheckin, roundCheckout, computeRounded } from '../src/lib/rounding.js';
+import { roundDuration, computeRounded, MIN_DURATION_MINUTES } from '../src/lib/rounding.js';
 
-function utc(h, m, s = 0) {
-  return new Date(`2026-01-01T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.000Z`);
-}
+// ── roundDuration ─────────────────────────────────────────────────────────────
 
-function hhmm(date) {
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toISOString().slice(11, 16);
-}
+describe('roundDuration', () => {
 
-// ── roundCheckin (FLOOR — always down) ───────────────────────────────────────
-
-describe('roundCheckin', () => {
-
-  it('TC-R01: 03:10 → 03:00 (spec example)', () => {
-    expect(hhmm(roundCheckin(utc(3, 10)))).toBe('03:00');
+  it('TC-R01: 60 min (1h 00m) → 60', () => {
+    expect(roundDuration(60)).toBe(60);
   });
 
-  it('TC-R02: 10:07 → 10:00 (just before half-boundary)', () => {
-    expect(hhmm(roundCheckin(utc(10, 7)))).toBe('10:00');
+  it('TC-R02: 65 min (1h 05m) → 60', () => {
+    expect(roundDuration(65)).toBe(60);
   });
 
-  it('TC-R03: 10:08 → 10:00 (just past half-boundary, still floors)', () => {
-    // NEAREST rule would give 10:15 here; FLOOR always gives 10:00
-    expect(hhmm(roundCheckin(utc(10, 8)))).toBe('10:00');
+  it('TC-R03: 67 min (1h 07m) → 60  (7 min below threshold, rounds down)', () => {
+    expect(roundDuration(67)).toBe(60);
   });
 
-  it('TC-R04: 10:10 → 10:00 (FLOOR rule — spec: "10:10 → 10:15 if nearest was implemented")', () => {
-    // With old NEAREST rule: 10:10 → 10:15 (10 > 7.5)
-    // With new FLOOR rule:   10:10 → 10:00
-    expect(hhmm(roundCheckin(utc(10, 10)))).toBe('10:00');
+  it('TC-R04: 68 min (1h 08m) → 75  (8 min = at/above threshold, rounds up)', () => {
+    expect(roundDuration(68)).toBe(75);
   });
 
-  it('TC-R05: 07:53 → 07:45 (near next quarter, still floors)', () => {
-    expect(hhmm(roundCheckin(utc(7, 53)))).toBe('07:45');
+  it('TC-R05: 74 min (1h 14m) → 75', () => {
+    expect(roundDuration(74)).toBe(75);
   });
 
-  it('TC-R06: exactly on boundary → no change', () => {
-    expect(hhmm(roundCheckin(utc(7, 15)))).toBe('07:15');
-    expect(hhmm(roundCheckin(utc(8, 0)))).toBe('08:00');
-    expect(hhmm(roundCheckin(utc(8, 45)))).toBe('08:45');
+  it('TC-R06: 82 min (1h 22m) → 75', () => {
+    expect(roundDuration(82)).toBe(75);
   });
 
-  it('TC-R07: 07:14 → 07:00 (1 min before boundary, floors to previous)', () => {
-    expect(hhmm(roundCheckin(utc(7, 14)))).toBe('07:00');
+  it('TC-R07: 83 min (1h 23m) → 90', () => {
+    expect(roundDuration(83)).toBe(90);
   });
 
-  it('TC-R08: midnight boundary', () => {
-    expect(hhmm(roundCheckin(utc(0, 1)))).toBe('00:00');
-    expect(hhmm(roundCheckin(utc(0, 14)))).toBe('00:00');
+  it('TC-R08: 7 min → 0  (rounds down to 0)', () => {
+    expect(roundDuration(7)).toBe(0);
   });
 
-});
-
-// ── roundCheckout (CEIL — always up) ─────────────────────────────────────────
-
-describe('roundCheckout', () => {
-
-  it('TC-R09: 11:22 → 11:30 (spec example)', () => {
-    expect(hhmm(roundCheckout(utc(11, 22)))).toBe('11:30');
+  it('TC-R09: 8 min → 15  (rounds up to first increment)', () => {
+    expect(roundDuration(8)).toBe(15);
   });
 
-  it('TC-R10: 15:00 → 15:00 (exactly on boundary: no change)', () => {
-    expect(hhmm(roundCheckout(utc(15, 0)))).toBe('15:00');
+  it('TC-R10: 15 min → 15  (exact boundary)', () => {
+    expect(roundDuration(15)).toBe(15);
   });
 
-  it('TC-R11: 15:01 → 15:15 (1 min past boundary, ceils up)', () => {
-    expect(hhmm(roundCheckout(utc(15, 1)))).toBe('15:15');
+  it('TC-R11: 0 min → 0', () => {
+    expect(roundDuration(0)).toBe(0);
   });
 
-  it('TC-R12: 15:59 → 16:00', () => {
-    expect(hhmm(roundCheckout(utc(15, 59)))).toBe('16:00');
+  it('TC-R12: 480 min (8h) → 480  (exact)', () => {
+    expect(roundDuration(480)).toBe(480);
   });
 
-  it('TC-R13: 23:45 → 23:45 (exact boundary at end of day)', () => {
-    expect(hhmm(roundCheckout(utc(23, 45)))).toBe('23:45');
-  });
-
-  it('TC-R14: 23:46 → 00:00 next day (crosses midnight)', () => {
-    const result = roundCheckout(utc(23, 46));
-    // result should be 24:00 which is next day 00:00
-    expect(result.getTime() - utc(23, 46).getTime()).toBeLessThan(15 * 60 * 1000);
-    expect(result.getUTCHours()).toBe(0);
-    expect(result.getUTCMinutes()).toBe(0);
+  it('TC-R13: 492 min (8h 12m) → 495 (8h 15m)', () => {
+    expect(roundDuration(492)).toBe(495);
   });
 
 });
 
-// ── computeRounded (end-to-end) ───────────────────────────────────────────────
+// ── MIN_DURATION_MINUTES constant ─────────────────────────────────────────────
+
+describe('MIN_DURATION_MINUTES', () => {
+  it('equals 10', () => {
+    expect(MIN_DURATION_MINUTES).toBe(10);
+  });
+});
+
+// ── computeRounded ────────────────────────────────────────────────────────────
 
 describe('computeRounded', () => {
 
-  it('TC-R15: 03:10 → 11:22 = 8h 30m (spec example)', () => {
+  it('TC-R14: actual times are preserved (no floor/ceil on timestamps)', () => {
+    const start = '2026-01-01T07:12:00.000Z';
+    const stop  = '2026-01-01T08:19:00.000Z';
+    const r = computeRounded(start, stop);
+    expect(r.rounded_start_time).toBe(start);
+    expect(r.rounded_stop_time).toBe(stop);
+  });
+
+  it('TC-R15: 1h 07m actual → 1h 00m rounded', () => {
+    const r = computeRounded(
+      '2026-01-01T08:00:00.000Z',
+      '2026-01-01T09:07:00.000Z',
+    );
+    expect(r.duration_minutes).toBe(67);
+    expect(r.rounded_duration_minutes).toBe(60);
+  });
+
+  it('TC-R16: 1h 08m actual → 1h 15m rounded', () => {
+    const r = computeRounded(
+      '2026-01-01T08:00:00.000Z',
+      '2026-01-01T09:08:00.000Z',
+    );
+    expect(r.duration_minutes).toBe(68);
+    expect(r.rounded_duration_minutes).toBe(75);
+  });
+
+  it('TC-R17: 1h 22m actual → 1h 15m rounded', () => {
+    const r = computeRounded(
+      '2026-01-01T08:00:00.000Z',
+      '2026-01-01T09:22:00.000Z',
+    );
+    expect(r.duration_minutes).toBe(82);
+    expect(r.rounded_duration_minutes).toBe(75);
+  });
+
+  it('TC-R18: 1h 23m actual → 1h 30m rounded', () => {
+    const r = computeRounded(
+      '2026-01-01T08:00:00.000Z',
+      '2026-01-01T09:23:00.000Z',
+    );
+    expect(r.duration_minutes).toBe(83);
+    expect(r.rounded_duration_minutes).toBe(90);
+  });
+
+  it('TC-R19: exact 15-min increment → no change', () => {
+    const r = computeRounded(
+      '2026-01-01T08:00:00.000Z',
+      '2026-01-01T09:00:00.000Z',
+    );
+    expect(r.duration_minutes).toBe(60);
+    expect(r.rounded_duration_minutes).toBe(60);
+  });
+
+  it('TC-R20: 8h 12m actual → 8h 15m rounded', () => {
     const r = computeRounded(
       '2026-01-01T03:10:00.000Z',
       '2026-01-01T11:22:00.000Z',
     );
-    expect(r.duration_minutes).toBe(492);          // 8h 12m actual
-    expect(hhmm(r.rounded_start_time)).toBe('03:00');
-    expect(hhmm(r.rounded_stop_time)).toBe('11:30');
-    expect(r.rounded_duration_minutes).toBe(510);  // 8h 30m
-  });
-
-  it('TC-R16: exact 15-min boundaries → duration unchanged', () => {
-    const r = computeRounded(
-      '2026-01-01T03:15:00.000Z',
-      '2026-01-01T10:00:00.000Z',
-    );
-    expect(r.duration_minutes).toBe(405);
-    expect(r.rounded_duration_minutes).toBe(405);
-  });
-
-  it('TC-R17: start before half-boundary, checkout past boundary', () => {
-    // 04:06 → 04:00 (floor), 04:38 → 04:45 (ceil)
-    const r = computeRounded(
-      '2026-01-01T04:06:00.000Z',
-      '2026-01-01T04:38:00.000Z',
-    );
-    expect(hhmm(r.rounded_start_time)).toBe('04:00');
-    expect(hhmm(r.rounded_stop_time)).toBe('04:45');
-    expect(r.rounded_duration_minutes).toBe(45);
-  });
-
-  it('TC-R18: start after half-boundary (old NEAREST would round UP, FLOOR rounds down)', () => {
-    // 07:12 → 07:00 (floor; old NEAREST gave 07:15)
-    const r = computeRounded(
-      '2026-01-01T07:12:00.000Z',
-      '2026-01-01T10:34:00.000Z',
-    );
-    expect(hhmm(r.rounded_start_time)).toBe('07:00');
-    expect(hhmm(r.rounded_stop_time)).toBe('10:45');
-    expect(r.rounded_duration_minutes).toBe(225);  // old NEAREST gave 210
-  });
-
-  it('TC-R19: checkout exactly on boundary → no change', () => {
-    // 08:03 → 08:00 (floor), 09:00 → 09:00 (exactly on boundary)
-    const r = computeRounded(
-      '2026-01-01T08:03:00.000Z',
-      '2026-01-01T09:00:00.000Z',
-    );
-    expect(hhmm(r.rounded_start_time)).toBe('08:00');
-    expect(hhmm(r.rounded_stop_time)).toBe('09:00');
-    expect(r.rounded_duration_minutes).toBe(60);
-  });
-
-  it('TC-R20: crosses noon', () => {
-    // 11:52 → 11:45 (floor), 13:07 → 13:15 (ceil)
-    const r = computeRounded(
-      '2026-01-01T11:52:00.000Z',
-      '2026-01-01T13:07:00.000Z',
-    );
-    expect(hhmm(r.rounded_start_time)).toBe('11:45');
-    expect(hhmm(r.rounded_stop_time)).toBe('13:15');
-    expect(r.rounded_duration_minutes).toBe(90);
-  });
-
-  it('TC-R21: single-quarter shift (15-min increment)', () => {
-    const r = computeRounded(
-      '2026-01-01T06:00:00.000Z',
-      '2026-01-01T06:15:00.000Z',
-    );
-    expect(r.duration_minutes).toBe(15);
-    expect(r.rounded_duration_minutes).toBe(15);
+    expect(r.duration_minutes).toBe(492);
+    expect(r.rounded_duration_minutes).toBe(495);
   });
 
 });

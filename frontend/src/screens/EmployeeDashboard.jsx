@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../auth.jsx';
 import { useGPS }  from '../hooks/useGPS.js';
+import { useNavigate } from 'react-router-dom';
 
 const api = path => `/api${path}`;
 
@@ -16,7 +17,7 @@ function fmtDuration(minutes) {
 function fmtTime(isoString) {
   if (!isoString) return '—';
   const d = new Date(isoString);
-  return `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 function todayISO() {
@@ -132,6 +133,12 @@ function TodayHistory({ entries }) {
               {fmtTime(e.start_time)}{e.stop_time ? ` – ${fmtTime(e.stop_time)}` : ' – ongoing'}
             </div>
             <div className="em-history-project">{e.project_name}</div>
+            {e.stop_time && (
+              <div className="em-history-durations">
+                <span>Actual {fmtDuration(e.duration_minutes)}</span>
+                <span className="em-history-rounded">Rounded {fmtDuration(e.rounded_duration_minutes)}</span>
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -272,8 +279,9 @@ function SummaryView({ summary, onDone }) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function EmployeeDashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const gps      = useGPS();
+  const navigate = useNavigate();
 
   const [session,      setSession]      = useState(null);
   const [allProjects,  setAllProjects]  = useState([]);
@@ -373,6 +381,11 @@ export default function EmployeeDashboard() {
   const handleSwitch    = () => handleCheckout({ thenSwitch: true });
   const handleSummaryDone = () => setSummary(null);
 
+  const handleSignOut = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   // ── Render ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -384,6 +397,10 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="em-root">
+      <div className="em-topbar">
+        <button className="em-signout-btn" onClick={handleSignOut}>Sign out</button>
+      </div>
+
       {error && (
         <div className="em-error-banner" role="alert">
           {error}

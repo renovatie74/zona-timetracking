@@ -315,8 +315,8 @@ describe('Time Entries — Manual CRUD', () => {
     }, admin.cookie);
     const res  = await timeEntryRoutes.create(req, env);
     const body = await res.json();
-    // rounded start = 07:00, rounded stop = 15:45 → 525 min
-    expect(body.data.rounded_duration_minutes).toBe(525);
+    // actual duration 07:07→15:31 = 504 min → Math.round(504/15)*15 = 510 min
+    expect(body.data.rounded_duration_minutes).toBe(510);
   });
 
   it('TC-TE03: stop before start is rejected', async () => {

@@ -712,6 +712,23 @@ tbody tr:hover { background: #FDFCFA; }
   justify-content: center;
 }
 
+.em-topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: max(8px, env(safe-area-inset-top, 8px)) 16px 0;
+}
+
+.em-signout-btn {
+  background: none;
+  border: none;
+  color: #9CA3AF;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+.em-signout-btn:hover { color: var(--color-charcoal); }
+
 .em-screen {
   flex: 1;
   display: flex;
@@ -1111,4 +1128,15 @@ tbody tr:hover { background: #FDFCFA; }
   font-size: 0.9375rem;
   font-weight: 500;
   color: var(--color-charcoal);
+}
+.em-history-durations {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--color-grey-600);
+  margin-top: 2px;
+}
+.em-history-rounded {
+  color: var(--color-gold);
+  font-weight: 500;
 }

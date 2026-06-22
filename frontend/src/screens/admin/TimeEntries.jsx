@@ -74,7 +74,8 @@ function formatDate(iso) {
 
 function formatTime(iso) {
   if (!iso) return '—';
-  return iso.slice(11, 16);
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 function formatDuration(mins) {

@@ -66,6 +66,14 @@ async function cookieFor(id, role) {
 let userSeq    = 500;
 let projectSeq = 200;
 
+// Backdate the open time entry for a user so checkout won't hit the minimum-duration guard.
+async function backdateCheckin(uid, minutesAgo = 15) {
+  const backdate = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  await env.DB.prepare(
+    `UPDATE TimeEntries SET start_time = ? WHERE user_id = ? AND stop_time IS NULL`,
+  ).bind(backdate, uid).run();
+}
+
 async function seedUser(role = 'employee') {
   const seq = userSeq++;
   const now = new Date().toISOString();
@@ -229,6 +237,7 @@ it('TC-3B09: checkout closes session and computes rounded durations', async () =
   const req1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
   req1.params = {};
   await timeEntryRoutes.checkin(req1, env);
+  await backdateCheckin(uid, 67);  // 1h 07m actual → 1h 00m rounded
 
   const req2 = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
   req2.params = {};
@@ -236,8 +245,8 @@ it('TC-3B09: checkout closes session and computes rounded durations', async () =
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body.data.stop_time).toBeTruthy();
-  expect(body.data.duration_minutes).toBeGreaterThanOrEqual(0);
-  expect(body.data.rounded_duration_minutes).toBeGreaterThanOrEqual(0);
+  expect(body.data.duration_minutes).toBeGreaterThanOrEqual(67);
+  expect(body.data.rounded_duration_minutes).toBe(60);  // 67 min → rounds to 60
   expect(body.data.rounded_start_time).toBeTruthy();
   expect(body.data.rounded_stop_time).toBeTruthy();
 });
@@ -251,6 +260,7 @@ it('TC-3B10: checkout records checkout GPS', async () => {
   const req1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
   req1.params = {};
   await timeEntryRoutes.checkin(req1, env);
+  await backdateCheckin(uid);  // backdate 15 min so min-duration check passes
 
   const req2 = makeRequest('POST', '/api/time-entries/checkout', {
     gps: { status: 'captured', lat: 25.2050, lng: 55.2710, accuracy: 8 },
@@ -285,6 +295,7 @@ it('TC-3B12: RecentProjects updated on checkin', async () => {
   const r1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid1 }, cook);
   r1.params = {};
   await timeEntryRoutes.checkin(r1, env);
+  await backdateCheckin(uid);
   const o1 = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
   o1.params = {};
   await timeEntryRoutes.checkout(o1, env);
@@ -315,6 +326,7 @@ it('TC-3B13: RecentProjects has no duplicate when same project re-checked-in', a
     const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
     r.params = {};
     await timeEntryRoutes.checkin(r, env);
+    await backdateCheckin(uid);
     const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
     o.params = {};
     await timeEntryRoutes.checkout(o, env);
@@ -366,6 +378,7 @@ it('TC-3B16: active returns null after checkout', async () => {
   const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
   r.params = {};
   await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid);
 
   const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
   o.params = {};
@@ -376,4 +389,99 @@ it('TC-3B16: active returns null after checkout', async () => {
   const res  = await timeEntryRoutes.active(a, env);
   const body = await res.json();
   expect(body.data).toBeNull();
+});
+
+// ── TC-3B17: checkout rejected when session < 10 min (2 min) ────────────────
+it('TC-3B17: checkout rejects session shorter than 10 minutes (2 min)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 2);  // only 2 minutes ago
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(422);
+  const body = await res.json();
+  expect(body.error).toContain('too short');
+  expect(body.error).toContain('10 minutes');
+});
+
+// ── TC-3B18: checkout rejected when session = 9 min ─────────────────────────
+it('TC-3B18: checkout rejects session of exactly 9 minutes', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 9);
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(422);
+});
+
+// ── TC-3B19: checkout accepted when session = 10 min ────────────────────────
+it('TC-3B19: checkout accepts session of exactly 10 minutes', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 10);
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.data.duration_minutes).toBeGreaterThanOrEqual(10);
+});
+
+// ── TC-3B20: rounding via checkout — 1h07m → 1h00m ──────────────────────────
+it('TC-3B20: checkout applies duration-based rounding (67 min → 60 min)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 67);
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.data.duration_minutes).toBeGreaterThanOrEqual(67);
+  expect(body.data.rounded_duration_minutes).toBe(60);
+});
+
+// ── TC-3B21: rounding via checkout — 1h08m → 1h15m ──────────────────────────
+it('TC-3B21: checkout applies duration-based rounding (68 min → 75 min)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 68);
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.data.rounded_duration_minutes).toBe(75);
 });
