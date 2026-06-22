@@ -87,7 +87,7 @@ export default function Projects() {
       end_date:  item.end_date   ?? '',
     });
     setError('');
-    setModal({ mode: 'edit', id: item.id });
+    setModal({ mode: 'edit', id: item.id, item });
   }
 
   async function handleSave(e) {
@@ -120,6 +120,7 @@ export default function Projects() {
     try {
       await api.delete(`/api/projects/${confirm.id}`);
       setConfirm(null);
+      setModal(null);
       load(search, statusFilter, clientFilter);
     } catch (e) {
       setError(e.message);
@@ -145,7 +146,7 @@ export default function Projects() {
             value={search}
             onChange={handleSearchChange}
           />
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '160px' }}
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Planning + Active</option>
             <option value="planning">Planning</option>
@@ -154,7 +155,7 @@ export default function Projects() {
             <option value="cancelled">Cancelled</option>
             <option value="all">All</option>
           </select>
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '220px' }}
             value={clientFilter} onChange={handleClientFilter}>
             <option value="">All Clients</option>
             {clients.map(c => (
@@ -198,10 +199,6 @@ export default function Projects() {
                     <td>
                       <div className="td-actions">
                         <button className="btn-ghost" onClick={() => openEdit(p)}>Edit</button>
-                        <button className="btn-ghost" style={{ color: 'var(--color-amber)' }}
-                          onClick={() => setConfirm({ id: p.id, name: p.name })}>
-                          Deactivate
-                        </button>
                       </div>
                     </td>
                   )}
@@ -266,13 +263,24 @@ export default function Projects() {
                   onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
+              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  {modal.mode === 'edit' && modal.item?.is_active ? (
+                    <button type="button" className="btn btn-outline"
+                      style={{ color: 'var(--color-amber)', borderColor: 'var(--color-amber)' }}
+                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name })}>
+                      Deactivate
+                    </button>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-solid" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -288,7 +296,7 @@ export default function Projects() {
             </p>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
-              <button className="btn btn-danger" disabled={saving} onClick={handleDeactivate}>
+              <button className="btn btn-amber" disabled={saving} onClick={handleDeactivate}>
                 {saving ? 'Deactivating…' : 'Deactivate'}
               </button>
             </div>

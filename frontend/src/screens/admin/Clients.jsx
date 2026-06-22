@@ -69,7 +69,7 @@ export default function Clients() {
       notes:          item.notes          ?? '',
     });
     setError('');
-    setModal({ mode: 'edit', id: item.id });
+    setModal({ mode: 'edit', id: item.id, item });
   }
 
   async function handleSave(e) {
@@ -104,6 +104,7 @@ export default function Clients() {
     try {
       await api.delete(`/api/clients/${confirm.id}`);
       setConfirm(null);
+      setModal(null);
       load(search, statusFilter);
     } catch (e) {
       setError(e.message);
@@ -129,7 +130,7 @@ export default function Clients() {
             value={search}
             onChange={handleSearchChange}
           />
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '160px' }}
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Active</option>
             <option value="inactive">Inactive</option>
@@ -174,10 +175,6 @@ export default function Clients() {
                     <td>
                       <div className="td-actions">
                         <button className="btn-ghost" onClick={() => openEdit(c)}>Edit</button>
-                        <button className="btn-ghost" style={{ color: 'var(--color-red)' }}
-                          onClick={() => setConfirm({ id: c.id, name: c.name })}>
-                          Deactivate
-                        </button>
                       </div>
                     </td>
                   )}
@@ -230,13 +227,24 @@ export default function Clients() {
                   onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
+              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  {modal.mode === 'edit' && modal.item?.is_active ? (
+                    <button type="button" className="btn btn-outline"
+                      style={{ color: 'var(--color-amber)', borderColor: 'var(--color-amber)' }}
+                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name })}>
+                      Deactivate
+                    </button>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-solid" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -252,7 +260,7 @@ export default function Clients() {
             </p>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
-              <button className="btn btn-danger" disabled={saving} onClick={handleDeactivate}>
+              <button className="btn btn-amber" disabled={saving} onClick={handleDeactivate}>
                 {saving ? 'Deactivating…' : 'Deactivate'}
               </button>
             </div>

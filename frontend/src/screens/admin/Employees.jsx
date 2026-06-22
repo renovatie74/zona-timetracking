@@ -166,7 +166,7 @@ export default function Employees() {
             value={search}
             onChange={handleSearchChange}
           />
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '160px' }}
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Active + Pending</option>
             <option value="active">Active</option>
@@ -174,14 +174,14 @@ export default function Employees() {
             <option value="inactive">Inactive</option>
             <option value="all">All</option>
           </select>
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '160px' }}
             value={roleFilter} onChange={handleRoleFilter}>
             <option value="">All Roles</option>
             <option value="administrator">Administrator</option>
             <option value="manager">Manager</option>
             <option value="employee">Employee</option>
           </select>
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '180px' }}
             value={teamFilter} onChange={handleTeamFilter}>
             <option value="">All Teams</option>
             <option value="none">No Team</option>
@@ -359,7 +359,7 @@ export default function Employees() {
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
               <button
-                className={confirm.action === 'deactivate' ? 'btn btn-danger' : 'btn btn-solid'}
+                className={confirm.action === 'deactivate' ? 'btn btn-amber' : 'btn btn-solid'}
                 disabled={saving}
                 onClick={handleLifecycle}>
                 {saving

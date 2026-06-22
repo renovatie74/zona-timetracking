@@ -73,7 +73,7 @@ export default function Teams() {
       supervisor_id: item.supervisor_id ?? '',
     });
     setError('');
-    setModal({ mode: 'edit', id: item.id });
+    setModal({ mode: 'edit', id: item.id, item });
   }
 
   async function handleSave(e) {
@@ -99,12 +99,13 @@ export default function Teams() {
     }
   }
 
-  async function handleDelete() {
+  async function handleDeactivate() {
     if (!confirm) return;
     setSaving(true);
     try {
       await api.delete(`/api/teams/${confirm.id}`);
       setConfirm(null);
+      setModal(null);
       load(search, statusFilter);
     } catch (e) {
       setError(e.message);
@@ -130,7 +131,7 @@ export default function Teams() {
             value={search}
             onChange={e => { setSearch(e.target.value); load(e.target.value, statusFilter); }}
           />
-          <select className="form-select toolbar-select"
+          <select className="form-select toolbar-select" style={{ width: '160px' }}
             value={statusFilter} onChange={handleStatusFilter}>
             <option value="">Active</option>
             <option value="inactive">Inactive</option>
@@ -171,8 +172,6 @@ export default function Teams() {
                     <td>
                       <div className="td-actions">
                         <button className="btn-ghost" onClick={() => openEdit(t)}>Edit</button>
-                        <button className="btn-ghost" style={{ color: 'var(--color-red)' }}
-                          onClick={() => setConfirm({ id: t.id, name: t.name })}>Delete</button>
                       </div>
                     </td>
                   )}
@@ -209,13 +208,24 @@ export default function Teams() {
                 </select>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save'}
-                </button>
+              <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+                <div>
+                  {modal.mode === 'edit' && modal.item?.is_active ? (
+                    <button type="button" className="btn btn-outline"
+                      style={{ color: 'var(--color-amber)', borderColor: 'var(--color-amber)' }}
+                      onClick={() => setConfirm({ id: modal.id, name: modal.item.name })}>
+                      Deactivate
+                    </button>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-solid" disabled={saving}>
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -231,7 +241,7 @@ export default function Teams() {
             </p>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
-              <button className="btn btn-danger" disabled={saving} onClick={handleDelete}>
+              <button className="btn btn-amber" disabled={saving} onClick={handleDeactivate}>
                 {saving ? 'Deactivating…' : 'Deactivate'}
               </button>
             </div>
