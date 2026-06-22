@@ -1617,12 +1617,9 @@ tbody tr:hover { background: #FDFCFA; }
 }
 .ex-add-btn:hover { opacity: 0.88; }
 
-.ex-filter-tabs {
-  display: flex;
-  gap: 8px;
-  padding: 14px 20px 0;
-}
-.ex-filter-tab {
+/* Reusable filter-pill: use .filter-pill for inactive, .filter-pill-active for selected state.
+   Rule: any gold-background control MUST pair with color: var(--color-white). */
+.filter-pill {
   padding: 6px 16px;
   border: 1.5px solid var(--color-grey-200);
   border-radius: 20px;
@@ -1633,11 +1630,17 @@ tbody tr:hover { background: #FDFCFA; }
   cursor: pointer;
   transition: all 0.12s;
 }
-.ex-filter-tab:hover { border-color: var(--color-gold); color: var(--color-charcoal); }
-.ex-filter-tab-active {
+.filter-pill:hover { border-color: var(--color-gold); color: var(--color-charcoal); }
+.filter-pill-active {
   background: var(--color-gold);
   border-color: var(--color-gold);
   color: var(--color-white);
+}
+
+.ex-filter-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px 0;
 }
 
 .ex-error-banner {

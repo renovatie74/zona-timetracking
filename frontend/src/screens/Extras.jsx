@@ -284,7 +284,7 @@ export default function Extras() {
           {[['', 'All'], ['open', 'Open'], ['processed', 'Processed']].map(([val, label]) => (
             <button
               key={val}
-              className={`ex-filter-tab${statusFilter === val ? ' ex-filter-tab-active' : ''}`}
+              className={`filter-pill${statusFilter === val ? ' filter-pill-active' : ''}`}
               onClick={() => handleFilterChange(val)}
             >
               {label}
