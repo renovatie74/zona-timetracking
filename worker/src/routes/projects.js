@@ -11,7 +11,8 @@ const VALID_STATUSES = ['planning', 'active', 'completed', 'cancelled'];
 const SELECT_COLS = `
   p.id, p.project_code, p.name, p.client_id,
   c.name AS client_name, c.client_code,
-  p.location, p.status, p.start_date, p.end_date, p.is_active, p.created_at, p.updated_at
+  p.location, p.status, p.start_date, p.end_date, p.is_active, p.created_at, p.updated_at,
+  (SELECT COUNT(*) FROM Extras ex WHERE ex.project_id = p.id AND ex.status = 'open' AND ex.is_deleted = 0) AS open_extras_count
 `;
 
 export async function list(request, env) {

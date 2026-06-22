@@ -36,6 +36,7 @@ import m12 from '../migrations/0012_employee_name_split.sql?raw';
 import m13 from '../migrations/0013_project_assignments.sql?raw';
 import m14 from '../migrations/0014_time_entry_status.sql?raw';
 import m15 from '../migrations/0015_audit_trail.sql?raw';
+import m16 from '../migrations/0016_extras.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql
@@ -135,7 +136,7 @@ async function seedAutoEntry(userId, projectId, dateStr = null) {
 
 // ── Apply all migrations once ─────────────────────────────────────────────────
 beforeAll(async () => {
-  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14,m15]) {
+  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14,m15,m16]) {
     await applyMigration(m);
   }
 });
@@ -519,4 +520,122 @@ it('TC-3C25: admin POST /api/time-entries sets created_by to the admin user', as
   const row = await env.DB.prepare('SELECT created_by FROM TimeEntries WHERE id = ?')
     .bind(body.data.id).first();
   expect(row.created_by).toBe(adminId);
+});
+
+// ══ Sprint 3C.1 — Future date blocking ══════════════════════════════════════
+
+// ── TC-3C26: employee can create entry for today ──────────────────────────────
+it('TC-3C26: employee can create a manual entry dated today', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  await assignProject(uid, pid);
+  const cook = await cookieFor(uid, 'employee');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const req   = makeRequest('POST', '/api/my-time',
+    { project_id: pid, start_time: `${today}T08:00:00.000Z`, stop_time: `${today}T10:00:00.000Z` },
+    cook);
+  req.params = {};
+  const res  = await myTimeRoutes.createMyEntry(req, env);
+  expect(res.status).toBe(201);
+});
+
+// ── TC-3C27: employee can create entry for an earlier day this week ───────────
+it('TC-3C27: employee can create a manual entry for an earlier day in the current week', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  await assignProject(uid, pid);
+  const cook = await cookieFor(uid, 'employee');
+
+  // Compute Monday of current week (UTC); skip this test if today IS Monday.
+  const today       = new Date().toISOString().slice(0, 10);
+  const weekStart   = weekStartFor(today);
+  if (weekStart === today) return; // nothing "earlier" this week — pass trivially
+
+  const req = makeRequest('POST', '/api/my-time',
+    { project_id: pid,
+      start_time: `${weekStart}T08:00:00.000Z`,
+      stop_time:  `${weekStart}T10:00:00.000Z` },
+    cook);
+  req.params = {};
+  const res  = await myTimeRoutes.createMyEntry(req, env);
+  expect(res.status).toBe(201);
+});
+
+// ── TC-3C28: employee cannot create entry for tomorrow ────────────────────────
+it('TC-3C28: employee cannot create a manual entry dated tomorrow (422)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  await assignProject(uid, pid);
+  const cook = await cookieFor(uid, 'employee');
+
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  // If tomorrow falls outside the current ISO week, this hits the week check first —
+  // still expects 422 with the same class of error.
+  const req = makeRequest('POST', '/api/my-time',
+    { project_id: pid,
+      start_time: `${tomorrow}T08:00:00.000Z`,
+      stop_time:  `${tomorrow}T10:00:00.000Z` },
+    cook);
+  req.params = {};
+  const res  = await myTimeRoutes.createMyEntry(req, env);
+  const body = await res.json();
+  expect(res.status).toBe(422);
+  expect(body.error).toMatch(/future|current week/i);
+});
+
+// ── TC-3C29: employee cannot edit a future-dated entry ───────────────────────
+it('TC-3C29: employee cannot edit a manual entry whose date is in the future (422)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  await assignProject(uid, pid);
+
+  // Seed a future-dated manual entry directly (bypass the route guard)
+  const tomorrow  = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const entryId   = await seedManualEntry(uid, pid, tomorrow);
+  const cook      = await cookieFor(uid, 'employee');
+
+  const req  = makeRequest('PUT', `/api/my-time/${entryId}`,
+    { notes: 'edited' }, cook);
+  req.params = { id: String(entryId) };
+  const res  = await myTimeRoutes.updateMyEntry(req, env);
+  const body = await res.json();
+  expect(res.status).toBe(422);
+  expect(body.error).toMatch(/future|current week/i);
+});
+
+// ── TC-3C30: employee cannot delete a future-dated entry ─────────────────────
+it('TC-3C30: employee cannot delete a manual entry whose date is in the future (422)', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  await assignProject(uid, pid);
+
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const entryId  = await seedManualEntry(uid, pid, tomorrow);
+  const cook     = await cookieFor(uid, 'employee');
+
+  const req  = makeRequest('DELETE', `/api/my-time/${entryId}`, null, cook);
+  req.params = { id: String(entryId) };
+  const res  = await myTimeRoutes.deleteMyEntry(req, env);
+  const body = await res.json();
+  expect(res.status).toBe(422);
+  expect(body.error).toMatch(/future|current week/i);
+});
+
+// ── TC-3C31: admin CRUD is unrestricted for future-dated entries ──────────────
+it('TC-3C31: admin POST /api/time-entries still accepts future-dated entries', async () => {
+  const adminId = await seedUser('administrator');
+  const empId   = await seedUser();
+  const pid     = await seedProject();
+  const cook    = await cookieFor(adminId, 'administrator');
+
+  const tomorrow  = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const startTime = `${tomorrow}T08:00:00.000Z`;
+  const stopTime  = `${tomorrow}T10:00:00.000Z`;
+
+  const req  = makeRequest('POST', '/api/time-entries',
+    { user_id: empId, project_id: pid, start_time: startTime, stop_time: stopTime }, cook);
+  req.params = {};
+  const res  = await timeEntryRoutes.create(req, env);
+  expect(res.status).toBe(201);
 });

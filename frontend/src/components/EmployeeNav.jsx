@@ -6,6 +6,7 @@ export default function EmployeeNav() {
 
   const isCheckin = pathname === '/dashboard';
   const isMyTime  = pathname === '/my-time';
+  const isExtras  = pathname === '/extras';
 
   return (
     <nav className="em-bottom-nav" aria-label="Main navigation">
@@ -32,6 +33,18 @@ export default function EmployeeNav() {
           <path d="M7 13.5h4M7 16.5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
         </svg>
         <span>My Time</span>
+      </button>
+
+      <button
+        className={`em-nav-tab${isExtras ? ' em-nav-tab-active' : ''}`}
+        onClick={() => navigate('/extras')}
+        aria-current={isExtras ? 'page' : undefined}
+      >
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <rect x="3" y="3" width="16" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.75"/>
+          <path d="M11 7v8M7 11h8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+        </svg>
+        <span>Extras</span>
       </button>
     </nav>
   );

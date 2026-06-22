@@ -6,6 +6,7 @@ import * as projectRoutes     from './routes/projects.js';
 import * as clientRoutes      from './routes/clients.js';
 import * as timeEntryRoutes   from './routes/time_entries.js';
 import * as myTimeRoutes      from './routes/my_time.js';
+import * as extrasRoutes      from './routes/extras.js';
 
 export const router = Router();
 
@@ -81,7 +82,21 @@ router.post(  '/api/my-time',      myTimeRoutes.createMyEntry);
 router.put(   '/api/my-time/:id',  myTimeRoutes.updateMyEntry);
 router.delete('/api/my-time/:id',  myTimeRoutes.deleteMyEntry);
 
-// ── Note routes (Sprint 4) ────────────────────────────────────────────────────
+// ── Extras routes (Sprint 4) ──────────────────────────────────────────────────
+// Employee self-service — /mine routes must precede /:id routes
+router.get(   '/api/extras/mine',         extrasRoutes.listMine);
+router.post(  '/api/extras/mine',         extrasRoutes.createMine);
+router.put(   '/api/extras/mine/:id',     extrasRoutes.updateMine);
+router.delete('/api/extras/mine/:id',     extrasRoutes.deleteMine);
+// Admin/manager endpoints
+router.get(   '/api/extras',              extrasRoutes.list);
+router.post(  '/api/extras',              extrasRoutes.create);
+router.post(  '/api/extras/:id/process',  extrasRoutes.process);
+router.post(  '/api/extras/:id/reopen',   extrasRoutes.reopen);
+router.put(   '/api/extras/:id',          extrasRoutes.update);
+router.delete('/api/extras/:id',          extrasRoutes.remove);
+
+// ── Note routes (Sprint 4+) ───────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);
 // router.post('/api/project-notes',      noteRoutes.create);
 // router.patch('/api/project-notes/:id', noteRoutes.update);

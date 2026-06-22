@@ -22,7 +22,8 @@ const SELECT_COLS = `
   r.name AS role, t.name AS team_name,
   CASE WHEN u.is_active = 1 THEN 'active'
        WHEN u.password_hash IS NULL THEN 'pending'
-       ELSE 'inactive' END AS status
+       ELSE 'inactive' END AS status,
+  (SELECT COUNT(*) FROM Extras ex WHERE ex.user_id = u.id AND ex.status = 'open' AND ex.is_deleted = 0) AS open_extras_count
 `;
 
 export async function list(request, env) {

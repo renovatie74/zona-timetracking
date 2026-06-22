@@ -25,6 +25,7 @@ export default function Employees() {
   const [saving,       setSaving]       = useState(false);
   const [error,        setError]        = useState('');
   const [form,         setForm]         = useState(EMPTY);
+  const [modalExtras,  setModalExtras]  = useState([]);
 
   useEffect(() => {
     load('', '', '', '');
@@ -92,6 +93,10 @@ export default function Employees() {
     });
     setError('');
     setModal({ mode: 'edit', id: item.id, item });
+    setModalExtras([]);
+    api.get(`/api/extras?user_id=${item.id}&status=open`).then(data => {
+      setModalExtras(data?.data ?? []);
+    }).catch(() => {});
   }
 
   function handleReset() {
@@ -147,7 +152,7 @@ export default function Employees() {
     }
   }
 
-  const colSpan = isAdmin ? 7 : 6;
+  const colSpan = isAdmin ? 8 : 7;
 
   return (
     <AppShell title="Employees">
@@ -204,6 +209,7 @@ export default function Employees() {
                 <th>Team</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Open Extras</th>
                 {isAdmin && <th>Actions</th>}
               </tr>
             </thead>
@@ -227,6 +233,19 @@ export default function Employees() {
                     {emp.status === 'active'   && <span className="badge badge-active">Active</span>}
                     {emp.status === 'pending'  && <span className="badge badge-pending">Pending Activation</span>}
                     {emp.status === 'inactive' && <span className="badge badge-inactive">Inactive</span>}
+                  </td>
+                  <td>
+                    {(emp.open_extras_count ?? 0) > 0 ? (
+                      <button
+                        className="ex-count-badge"
+                        onClick={() => navigate(`/admin/extras?user_id=${emp.id}&status=open`)}
+                        title="View open extras for this employee"
+                      >
+                        {emp.open_extras_count}
+                      </button>
+                    ) : (
+                      <span style={{ color: 'var(--color-grey-400)', fontSize: '0.875rem' }}>—</span>
+                    )}
                   </td>
                   {isAdmin && (
                     <td>
@@ -307,6 +326,43 @@ export default function Employees() {
                   ))}
                 </select>
               </div>
+
+              {modal.mode === 'edit' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Open Extras {modalExtras.length > 0 && <span className="ex-modal-count">{modalExtras.length}</span>}</span>
+                    {modalExtras.length > 0 && (
+                      <button type="button" className="btn-ghost"
+                        style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+                        onClick={() => { setModal(null); navigate(`/admin/extras?user_id=${modal.id}&status=open`); }}>
+                        View all →
+                      </button>
+                    )}
+                  </label>
+                  {modalExtras.length === 0 ? (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--color-grey-500)', margin: 0 }}>No open extras.</p>
+                  ) : (
+                    <div className="ex-modal-list">
+                      {modalExtras.slice(0, 5).map(ex => (
+                        <div key={ex.id} className="ex-modal-item">
+                          <span className={`ex-type-badge ${ex.type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost'}`}>
+                            {ex.type === 'extra_work' ? 'Extra Work' : 'Own Cost'}
+                          </span>
+                          <span style={{ fontSize: '0.875rem', color: 'var(--color-grey-700)' }}>{ex.project_name}</span>
+                          <span style={{ fontSize: '0.8125rem', color: 'var(--color-grey-600)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ex.description}
+                          </span>
+                        </div>
+                      ))}
+                      {modalExtras.length > 5 && (
+                        <p style={{ fontSize: '0.8rem', color: 'var(--color-grey-500)', margin: '4px 0 0' }}>
+                          +{modalExtras.length - 5} more
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
                 <div>

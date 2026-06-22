@@ -55,8 +55,9 @@ export async function createMyEntry(request, env) {
     );
   }
 
-  // Entry date must fall in the current ISO week
-  const entryDate   = start.toISOString().slice(0, 10);
+  // Entry date must fall in the current ISO week and must not be in the future
+  const entryDate    = start.toISOString().slice(0, 10);
+  const todayUTC     = new Date().toISOString().slice(0, 10);
   const curWeekStart = currentWeekStart();
   const curWeekEnd   = weekEndFor(curWeekStart);
   if (entryDate < curWeekStart || entryDate > curWeekEnd) {
@@ -64,6 +65,9 @@ export async function createMyEntry(request, env) {
       { error: 'Manual entries can only be added for the current week' },
       { status: 422 },
     );
+  }
+  if (entryDate > todayUTC) {
+    return Response.json({ error: 'Future time entries are not allowed.' }, { status: 422 });
   }
 
   // Verify project is active and assigned to this employee
@@ -121,12 +125,16 @@ export async function updateMyEntry(request, env) {
     return Response.json({ error: 'Only manually entered sessions can be edited' }, { status: 403 });
   }
 
-  // Must be in the current ISO week
-  const entryDate   = old.start_time.slice(0, 10);
+  // Must be in the current ISO week and must not be a future date
+  const entryDate    = old.start_time.slice(0, 10);
+  const todayUTC     = new Date().toISOString().slice(0, 10);
   const curWeekStart = currentWeekStart();
   const curWeekEnd   = weekEndFor(curWeekStart);
   if (entryDate < curWeekStart || entryDate > curWeekEnd) {
     return Response.json({ error: 'Only entries in the current week can be edited' }, { status: 422 });
+  }
+  if (entryDate > todayUTC) {
+    return Response.json({ error: 'Future time entries are not allowed.' }, { status: 422 });
   }
 
   const body       = await request.json();
@@ -148,10 +156,13 @@ export async function updateMyEntry(request, env) {
     );
   }
 
-  // New date must also be in the current week
+  // New date must also be in the current week and not in the future
   const newDate = start.toISOString().slice(0, 10);
   if (newDate < curWeekStart || newDate > curWeekEnd) {
     return Response.json({ error: 'Entry date must remain in the current week' }, { status: 422 });
+  }
+  if (newDate > todayUTC) {
+    return Response.json({ error: 'Future time entries are not allowed.' }, { status: 422 });
   }
 
   const rounded = computeRounded(start, stop);
@@ -198,12 +209,16 @@ export async function deleteMyEntry(request, env) {
     return Response.json({ error: 'Only manually entered sessions can be deleted' }, { status: 403 });
   }
 
-  // Must be in the current ISO week
-  const entryDate   = old.start_time.slice(0, 10);
+  // Must be in the current ISO week and must not be a future date
+  const entryDate    = old.start_time.slice(0, 10);
+  const todayUTC     = new Date().toISOString().slice(0, 10);
   const curWeekStart = currentWeekStart();
   const curWeekEnd   = weekEndFor(curWeekStart);
   if (entryDate < curWeekStart || entryDate > curWeekEnd) {
     return Response.json({ error: 'Only entries in the current week can be deleted' }, { status: 422 });
+  }
+  if (entryDate > todayUTC) {
+    return Response.json({ error: 'Future time entries are not allowed.' }, { status: 422 });
   }
 
   const now = new Date().toISOString();

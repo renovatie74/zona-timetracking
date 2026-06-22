@@ -72,6 +72,15 @@ function IconTimeEntries() {
   );
 }
 
+function IconExtras() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="2" y="2" width="16" height="16" rx="2.5"/>
+      <path d="M10 6v8M6 10h8"/>
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -101,6 +110,7 @@ export default function AppShell({ children, title }) {
     { to: '/employees',     label: 'Employees',    Icon: IconEmployees,    always: false },
     { to: '/teams',         label: 'Teams',        Icon: IconTeams,        always: false },
     { to: '/time-entries',  label: 'Time Entries', Icon: IconTimeEntries,  always: false },
+    { to: '/admin/extras',  label: 'Extras',       Icon: IconExtras,       always: false },
     { to: '/profile',       label: 'Profile',      Icon: IconProfile,      always: true  },
   ].filter(l => l.always || isAdminOrMgr);
 

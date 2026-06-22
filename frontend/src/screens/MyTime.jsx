@@ -45,6 +45,16 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Uses local browser date so UAE +4 employees see the right day boundary.
+function localTodayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function isFutureDateStr(dateStr) {
+  return dateStr > localTodayISO();
+}
+
 function fmtWeekRange(start, end) {
   const s = new Date(start + 'T00:00:00Z');
   const e = new Date(end   + 'T00:00:00Z');
@@ -263,7 +273,7 @@ function DaySection({ dateStr, entries, isCurrentWeek, onAdd, onEdit, onDelete }
           <span className="mt-day-name">{fmtDayHeading(dateStr)}</span>
           {total > 0 && <span className="mt-day-total">{fmtDuration(total)}</span>}
         </div>
-        {isCurrentWeek && (
+        {isCurrentWeek && !isFutureDateStr(dateStr) && (
           <button className="mt-add-btn" onClick={() => onAdd(dateStr)} aria-label={`Add entry for ${dateStr}`}>
             + Add
           </button>
@@ -287,7 +297,7 @@ function DaySection({ dateStr, entries, isCurrentWeek, onAdd, onEdit, onDelete }
                   {e.notes && <span className="mt-entry-notes">{e.notes}</span>}
                 </div>
               </div>
-              {isCurrentWeek && e.entry_source === 'manual_worker' && e.stop_time && (
+              {isCurrentWeek && e.entry_source === 'manual_worker' && e.stop_time && !isFutureDateStr(e.start_time.slice(0, 10)) && (
                 <div className="mt-entry-actions">
                   <button className="mt-action-btn" onClick={() => onEdit(e)} aria-label="Edit entry">
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
