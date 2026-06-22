@@ -1,8 +1,13 @@
-import { useAuth }    from '../auth.jsx';
-import AppShell      from './AppShell.jsx';
+import { useAuth }          from '../auth.jsx';
+import AppShell             from './AppShell.jsx';
+import EmployeeDashboard    from './EmployeeDashboard.jsx';
 
 export default function Dashboard() {
   const { user } = useAuth();
+
+  if (user?.role === 'employee') {
+    return <EmployeeDashboard />;
+  }
 
   return (
     <AppShell title="Dashboard">

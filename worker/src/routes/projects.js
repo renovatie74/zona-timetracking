@@ -1,7 +1,7 @@
-import { requireRole }     from '../middleware/auth.js';
-import { writeAudit }      from '../lib/audit.js';
-import { nextProjectCode } from '../lib/sequence.js';
-import { getManagerScope } from '../lib/scope.js';
+import { requireRole, requireAuth } from '../middleware/auth.js';
+import { writeAudit }               from '../lib/audit.js';
+import { nextProjectCode }          from '../lib/sequence.js';
+import { getManagerScope }          from '../lib/scope.js';
 
 const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
@@ -256,6 +256,30 @@ export async function setAssignments(request, env) {
      WHERE  pa.project_id = ?
      ORDER  BY u.first_name, u.last_name`,
   ).bind(id).all();
+
+  return Response.json({ data: results });
+}
+
+// ── Employee: projects assigned to the current user (Sprint 3B) ───────────────
+// Returns assigned projects with recent ones (from RecentProjects) listed first.
+export async function mine(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const url = new URL(request.url);
+  const q   = (url.searchParams.get('q') ?? '').trim();
+
+  const { results } = await env.DB.prepare(
+    `SELECT p.id, p.project_code, p.name, p.is_active,
+            rp.rank AS recent_rank
+     FROM   ProjectAssignments pa
+     JOIN   Projects p ON p.id = pa.project_id
+     LEFT   JOIN RecentProjects rp ON rp.project_id = p.id AND rp.user_id = pa.user_id
+     WHERE  pa.user_id = ? AND p.is_active = 1
+       ${q ? "AND (p.name LIKE '%' || ? || '%' OR p.project_code LIKE '%' || ? || '%')" : ''}
+     ORDER  BY rp.rank ASC NULLS LAST, p.name ASC
+     LIMIT  50`,
+  ).bind(...(q ? [request.user.id, q, q] : [request.user.id])).all();
 
   return Response.json({ data: results });
 }

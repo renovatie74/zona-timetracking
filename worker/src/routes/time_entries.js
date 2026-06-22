@@ -1,7 +1,7 @@
-import { requireRole }      from '../middleware/auth.js';
-import { writeAudit }       from '../lib/audit.js';
-import { computeRounded }   from '../lib/rounding.js';
-import { getManagerScope }  from '../lib/scope.js';
+import { requireRole, requireAuth } from '../middleware/auth.js';
+import { writeAudit }               from '../lib/audit.js';
+import { computeRounded }           from '../lib/rounding.js';
+import { getManagerScope }          from '../lib/scope.js';
 
 const ADMIN        = requireRole('administrator');
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
@@ -205,6 +205,164 @@ export async function update(request, env) {
   ).bind(id).first();
 
   return Response.json({ data: entry });
+}
+
+// ── Sprint 3B — Employee check-in / check-out ─────────────────────────────────
+
+export async function active(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const entry = await env.DB.prepare(
+    `SELECT te.id, te.project_id, p.name AS project_name, te.start_time,
+            te.gps_status, te.checkin_lat, te.checkin_lng
+     FROM   TimeEntries te
+     JOIN   Projects p ON p.id = te.project_id
+     WHERE  te.user_id = ? AND te.stop_time IS NULL AND te.is_deleted = 0
+     ORDER  BY te.start_time DESC
+     LIMIT  1`,
+  ).bind(request.user.id).first();
+
+  if (!entry) return Response.json({ data: null });
+
+  const startMs    = new Date(entry.start_time).getTime();
+  const hoursOpen  = (Date.now() - startMs) / 3_600_000;
+
+  return Response.json({ data: { ...entry, unclosed_warning: hoursOpen > 12 } });
+}
+
+export async function checkin(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const { project_id, gps } = await request.json();
+  if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
+
+  // Collision check — BLOCK if session already open
+  const existing = await env.DB.prepare(
+    `SELECT te.id, te.start_time, p.name AS project_name
+     FROM   TimeEntries te
+     JOIN   Projects p ON p.id = te.project_id
+     WHERE  te.user_id = ? AND te.stop_time IS NULL AND te.is_deleted = 0
+     LIMIT  1`,
+  ).bind(request.user.id).first();
+
+  if (existing) {
+    const t   = new Date(existing.start_time);
+    const hh  = String(t.getUTCHours()).padStart(2, '0');
+    const mm  = String(t.getUTCMinutes()).padStart(2, '0');
+    return Response.json({
+      error: `You already have an active session started at ${hh}:${mm} on ${existing.project_name}. Please check out before starting a new session.`,
+    }, { status: 409 });
+  }
+
+  // Validate project
+  const proj = await env.DB.prepare(
+    'SELECT id FROM Projects WHERE id = ? AND is_active = 1',
+  ).bind(Number(project_id)).first();
+  if (!proj) return Response.json({ error: 'Project not found or inactive' }, { status: 400 });
+
+  const now              = new Date().toISOString();
+  const gps_status       = gps?.status       ?? 'unavailable';
+  const checkin_lat      = gps?.lat          ?? null;
+  const checkin_lng      = gps?.lng          ?? null;
+  const checkin_accuracy = gps?.accuracy     ?? null;
+  const checkin_maps_url = checkin_lat && checkin_lng
+    ? `https://maps.google.com/?q=${checkin_lat},${checkin_lng}`
+    : null;
+
+  const result = await env.DB.prepare(
+    `INSERT INTO TimeEntries
+       (user_id, project_id, entry_source, start_time,
+        gps_status, checkin_lat, checkin_lng, checkin_accuracy_m, checkin_maps_url,
+        is_manual_entry, status, created_at, updated_at)
+     VALUES (?, ?, 'automatic', ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?)`,
+  ).bind(
+    request.user.id, Number(project_id), now,
+    gps_status, checkin_lat, checkin_lng, checkin_accuracy, checkin_maps_url,
+    now, now,
+  ).run();
+
+  await updateRecentProjects(env.DB, request.user.id, Number(project_id), now);
+
+  const entry = await env.DB.prepare(
+    `SELECT te.id, te.project_id, p.name AS project_name, te.start_time,
+            te.gps_status, te.checkin_lat, te.checkin_lng, te.checkin_accuracy_m, te.checkin_maps_url
+     FROM   TimeEntries te
+     JOIN   Projects p ON p.id = te.project_id
+     WHERE  te.id = ?`,
+  ).bind(result.meta.last_row_id).first();
+
+  return Response.json({ data: entry }, { status: 201 });
+}
+
+export async function checkout(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const body = await request.json().catch(() => ({}));
+  const gps  = body?.gps;
+
+  const entry = await env.DB.prepare(
+    `SELECT id, start_time, project_id
+     FROM   TimeEntries
+     WHERE  user_id = ? AND stop_time IS NULL AND is_deleted = 0
+     ORDER  BY start_time DESC
+     LIMIT  1`,
+  ).bind(request.user.id).first();
+
+  if (!entry) return Response.json({ error: 'No active session found' }, { status: 404 });
+
+  const start  = new Date(entry.start_time);
+  const stop   = new Date();
+  const rounded = computeRounded(start, stop);
+  const now    = stop.toISOString();
+
+  const checkout_gps_status  = gps?.status   ?? 'unavailable';
+  const checkout_lat         = gps?.lat       ?? null;
+  const checkout_lng         = gps?.lng       ?? null;
+  const checkout_accuracy    = gps?.accuracy  ?? null;
+  const checkout_maps_url    = checkout_lat && checkout_lng
+    ? `https://maps.google.com/?q=${checkout_lat},${checkout_lng}`
+    : null;
+
+  await env.DB.prepare(
+    `UPDATE TimeEntries SET
+       stop_time = ?,
+       duration_minutes = ?, rounded_start_time = ?, rounded_stop_time = ?, rounded_duration_minutes = ?,
+       checkout_gps_status = ?, checkout_lat = ?, checkout_lng = ?, checkout_accuracy_m = ?, checkout_maps_url = ?,
+       status = 'submitted', updated_at = ?
+     WHERE id = ?`,
+  ).bind(
+    now,
+    rounded.duration_minutes, rounded.rounded_start_time, rounded.rounded_stop_time, rounded.rounded_duration_minutes,
+    checkout_gps_status, checkout_lat, checkout_lng, checkout_accuracy, checkout_maps_url,
+    now, entry.id,
+  ).run();
+
+  const closed = await env.DB.prepare(
+    `SELECT te.id, te.project_id, p.name AS project_name,
+            te.start_time, te.stop_time,
+            te.duration_minutes, te.rounded_duration_minutes,
+            te.rounded_start_time, te.rounded_stop_time,
+            te.gps_status, te.checkin_lat, te.checkin_lng,
+            te.checkout_gps_status, te.checkout_lat, te.checkout_lng, te.checkout_maps_url
+     FROM   TimeEntries te
+     JOIN   Projects p ON p.id = te.project_id
+     WHERE  te.id = ?`,
+  ).bind(entry.id).first();
+
+  return Response.json({ data: closed });
+}
+
+// Upsert helper — keeps the 2 most-recent projects per user, no duplicates.
+async function updateRecentProjects(db, userId, projectId, now) {
+  await db.batch([
+    db.prepare('DELETE FROM RecentProjects WHERE user_id = ? AND project_id = ?').bind(userId, projectId),
+    db.prepare('DELETE FROM RecentProjects WHERE user_id = ? AND rank = 2').bind(userId),
+    db.prepare('UPDATE RecentProjects SET rank = 2 WHERE user_id = ? AND rank = 1').bind(userId),
+    db.prepare('INSERT INTO RecentProjects (user_id, project_id, rank, updated_at) VALUES (?, ?, 1, ?)').bind(userId, projectId, now),
+  ]);
 }
 
 // ── Delete (soft) ─────────────────────────────────────────────────────────────

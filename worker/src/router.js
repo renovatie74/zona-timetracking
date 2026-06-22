@@ -51,6 +51,7 @@ router.put(   '/api/clients/:id', clientRoutes.update);
 router.delete('/api/clients/:id', clientRoutes.remove);
 
 // ── Project routes (Sprint 2 + 3A assignments) ───────────────────────────────
+router.get(   '/api/projects/mine',               projectRoutes.mine);
 router.get(   '/api/projects',                    projectRoutes.list);
 router.get(   '/api/projects/:id',                projectRoutes.get);
 router.post(  '/api/projects',                    projectRoutes.create);
@@ -65,10 +66,11 @@ router.post(  '/api/time-entries',      timeEntryRoutes.create);
 router.put(   '/api/time-entries/:id',  timeEntryRoutes.update);
 router.delete('/api/time-entries/:id',  timeEntryRoutes.remove);
 
-// ── Time entry routes (Sprint 3B — check-in / check-out, reserved) ───────────
-// router.post('/api/time-entries/checkin',  timeEntryRoutes.checkin);
-// router.post('/api/time-entries/checkout', timeEntryRoutes.checkout);
-// router.get('/api/time-entries/active',    timeEntryRoutes.active);
+// ── Time entry routes (Sprint 3B — check-in / check-out) ─────────────────────
+// These must be declared before /:id routes so itty-router doesn't swallow them.
+router.get( '/api/time-entries/active',    timeEntryRoutes.active);
+router.post('/api/time-entries/checkin',   timeEntryRoutes.checkin);
+router.post('/api/time-entries/checkout',  timeEntryRoutes.checkout);
 
 // ── Note routes (Sprint 4) ────────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);
