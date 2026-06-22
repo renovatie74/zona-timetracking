@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../auth.jsx';
 import { useGPS }  from '../hooks/useGPS.js';
 import { useNavigate } from 'react-router-dom';
+import EmployeeNav from '../components/EmployeeNav.jsx';
 
 const api = path => `/api${path}`;
 
@@ -524,6 +525,8 @@ export default function EmployeeDashboard() {
           busy={busy}
         />
       )}
+
+      <EmployeeNav />
     </div>
   );
 }

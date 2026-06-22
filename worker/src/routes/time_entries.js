@@ -125,14 +125,14 @@ export async function create(request, env) {
        (user_id, project_id, entry_source,
         start_time, stop_time,
         duration_minutes, rounded_start_time, rounded_stop_time, rounded_duration_minutes,
-        is_manual_entry, status, notes, created_at, updated_at)
-     VALUES (?, ?, 'manual_admin', ?, ?, ?, ?, ?, ?, 1, 'approved', ?, ?, ?)`,
+        is_manual_entry, status, notes, created_by, created_at, updated_at)
+     VALUES (?, ?, 'manual_admin', ?, ?, ?, ?, ?, ?, 1, 'approved', ?, ?, ?, ?)`,
   ).bind(
     Number(user_id), Number(project_id),
     start.toISOString(), stop.toISOString(),
     rounded.duration_minutes,
     rounded.rounded_start_time, rounded.rounded_stop_time, rounded.rounded_duration_minutes,
-    notes, now, now,
+    notes, request.user.id, now, now,
   ).run();
 
   const entry = await env.DB.prepare(
@@ -197,13 +197,13 @@ export async function update(request, env) {
     `UPDATE TimeEntries
      SET  start_time = ?, stop_time = ?,
           duration_minutes = ?, rounded_start_time = ?, rounded_stop_time = ?,
-          rounded_duration_minutes = ?, notes = ?, updated_at = ?
+          rounded_duration_minutes = ?, notes = ?, updated_by = ?, updated_at = ?
      WHERE id = ?`,
   ).bind(
     start.toISOString(), stop.toISOString(),
     rounded.duration_minutes,
     rounded.rounded_start_time, rounded.rounded_stop_time, rounded.rounded_duration_minutes,
-    notes, now, id,
+    notes, request.user.id, now, id,
   ).run();
 
   await writeAudit(env.DB, {
@@ -322,12 +322,12 @@ export async function checkin(request, env) {
     `INSERT INTO TimeEntries
        (user_id, project_id, entry_source, start_time,
         gps_status, checkin_lat, checkin_lng, checkin_accuracy_m, checkin_maps_url,
-        is_manual_entry, status, created_at, updated_at)
-     VALUES (?, ?, 'automatic', ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?)`,
+        is_manual_entry, status, created_by, created_at, updated_at)
+     VALUES (?, ?, 'automatic', ?, ?, ?, ?, ?, ?, 0, 'draft', ?, ?, ?)`,
   ).bind(
     request.user.id, Number(project_id), now,
     gps_status, checkin_lat, checkin_lng, checkin_accuracy, checkin_maps_url,
-    now, now,
+    request.user.id, now, now,
   ).run();
 
   await updateRecentProjects(env.DB, request.user.id, Number(project_id), now);
@@ -389,13 +389,13 @@ export async function checkout(request, env) {
        stop_time = ?,
        duration_minutes = ?, rounded_start_time = ?, rounded_stop_time = ?, rounded_duration_minutes = ?,
        checkout_gps_status = ?, checkout_lat = ?, checkout_lng = ?, checkout_accuracy_m = ?, checkout_maps_url = ?,
-       status = 'submitted', updated_at = ?
+       status = 'submitted', updated_by = ?, updated_at = ?
      WHERE id = ?`,
   ).bind(
     now,
     rounded.duration_minutes, rounded.rounded_start_time, rounded.rounded_stop_time, rounded.rounded_duration_minutes,
     checkout_gps_status, checkout_lat, checkout_lng, checkout_accuracy, checkout_maps_url,
-    now, entry.id,
+    request.user.id, now, entry.id,
   ).run();
 
   const closed = await env.DB.prepare(
@@ -434,9 +434,9 @@ export async function discard(request, env) {
   const now = new Date().toISOString();
   await env.DB.prepare(
     `UPDATE TimeEntries
-     SET  is_deleted = 1, stop_time = ?, updated_at = ?
+     SET  is_deleted = 1, stop_time = ?, updated_by = ?, updated_at = ?
      WHERE id = ?`,
-  ).bind(now, now, entry.id).run();
+  ).bind(now, request.user.id, now, entry.id).run();
 
   return Response.json({ data: { discarded: true, entry_id: entry.id } });
 }
@@ -472,8 +472,8 @@ export async function remove(request, env) {
 
   const now = new Date().toISOString();
   await env.DB.prepare(
-    'UPDATE TimeEntries SET is_deleted = 1, updated_at = ? WHERE id = ?',
-  ).bind(now, id).run();
+    'UPDATE TimeEntries SET is_deleted = 1, updated_by = ?, updated_at = ? WHERE id = ?',
+  ).bind(request.user.id, now, id).run();
 
   await writeAudit(env.DB, {
     actorId: request.user.id, action: 'deleted', entityType: 'time_entry', entityId: Number(id),

@@ -1202,3 +1202,348 @@ tbody tr:hover { background: #FDFCFA; }
   color: var(--color-gold);
   font-weight: 500;
 }
+
+/* ── Sprint 3C — Bottom navigation ──────────────────────────────────────────── */
+.em-bottom-nav {
+  display: flex;
+  border-top: 1px solid var(--color-grey-200);
+  background: var(--color-white);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  flex-shrink: 0;
+}
+.em-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9CA3AF;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+.em-nav-tab:hover { color: var(--color-charcoal); }
+.em-nav-tab-active { color: var(--color-gold); }
+
+/* ── Sprint 3C — My Time screen ──────────────────────────────────────────────── */
+.mt-root {
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-top:   env(safe-area-inset-top, 0px);
+  padding-left:  env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.mt-root.em-loading {
+  align-items: center;
+  justify-content: center;
+}
+
+.mt-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Week navigation bar */
+.mt-week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px;
+  background: var(--color-white);
+  border-bottom: 1px solid var(--color-grey-200);
+  flex-shrink: 0;
+}
+.mt-week-arrow {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-grey-600);
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: background 0.12s, color 0.12s;
+}
+.mt-week-arrow:hover:not(:disabled) { background: var(--color-grey-50); color: var(--color-charcoal); }
+.mt-week-arrow:disabled { opacity: 0.3; cursor: default; }
+.mt-week-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.mt-week-range {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+}
+.mt-week-current-chip {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+/* Week total strip */
+.mt-week-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: var(--color-grey-50);
+  border-bottom: 1px solid var(--color-grey-200);
+  font-size: 0.875rem;
+  color: var(--color-grey-600);
+  flex-shrink: 0;
+}
+.mt-week-total strong { color: var(--color-charcoal); font-weight: 700; }
+
+/* Scrollable day list */
+.mt-day-list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.mt-list-bottom-pad { height: 16px; }
+
+/* Day section */
+.mt-day-section {
+  border-bottom: 1px solid var(--color-grey-200);
+}
+.mt-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 8px;
+  background: var(--color-grey-50);
+}
+.mt-day-info {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mt-day-name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+}
+.mt-day-total {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-gold);
+}
+.mt-add-btn {
+  background: none;
+  border: 1px solid var(--color-grey-300);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-grey-600);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.mt-add-btn:hover { border-color: var(--color-gold); color: var(--color-charcoal); }
+
+.mt-no-entries {
+  padding: 10px 16px;
+  font-size: 0.8125rem;
+  color: var(--color-grey-600);
+}
+
+/* Entry row */
+.mt-entry-list { list-style: none; }
+.mt-entry-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-grey-200);
+}
+.mt-entry-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.mt-entry-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mt-entry-project {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mt-entry-times {
+  font-size: 0.8125rem;
+  color: var(--color-grey-600);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mt-entry-dur {
+  font-weight: 600;
+  color: var(--color-gold);
+}
+.mt-entry-notes {
+  font-size: 0.75rem;
+  color: var(--color-grey-600);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mt-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.mt-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  color: var(--color-grey-600);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: background 0.12s, color 0.12s;
+}
+.mt-action-btn:hover { background: var(--color-grey-50); color: var(--color-charcoal); }
+.mt-action-delete:hover { background: #fee2e2; color: var(--color-red); }
+
+/* Source badges */
+.mt-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.mt-source-auto   { background: var(--color-grey-50); color: var(--color-grey-600); border: 1px solid var(--color-grey-200); }
+.mt-source-manual { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+.mt-source-admin  { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+
+/* Entry form sheet */
+.mt-form-sheet {
+  background: var(--color-white);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.mt-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+}
+.mt-form-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+}
+.mt-form-date {
+  padding: 4px 20px 16px;
+  font-size: 0.875rem;
+  color: var(--color-grey-600);
+  border-bottom: 1px solid var(--color-grey-200);
+}
+.mt-form-error {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+.mt-form-field {
+  padding: 16px 20px 0;
+}
+.mt-form-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin-bottom: 6px;
+}
+.mt-optional { font-weight: 400; color: var(--color-grey-600); }
+.mt-project-select-btn {
+  width: 100%;
+  background: none;
+  border: 1.5px solid var(--color-grey-200);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s;
+}
+.mt-project-select-btn:hover { border-color: var(--color-gold); }
+.mt-project-placeholder { font-size: 0.9375rem; color: var(--color-grey-600); }
+.mt-form-row {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px 0;
+}
+.mt-form-row .mt-form-field { flex: 1; padding: 0; }
+.mt-time-input,
+.mt-notes-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid var(--color-grey-200);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--color-charcoal);
+  background: var(--color-white);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.mt-time-input:focus,
+.mt-notes-input:focus { border-color: var(--color-gold); }
+.mt-save-btn {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 20px 20px 0;
+  padding: 16px;
+  background: var(--color-gold);
+  color: #1a1108;
+  border: none;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.mt-save-btn:hover:not(:disabled) { opacity: 0.88; }
+.mt-save-btn:disabled { opacity: 0.55; cursor: not-allowed; }

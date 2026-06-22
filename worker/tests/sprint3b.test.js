@@ -34,6 +34,7 @@ import m11 from '../migrations/0011_projects_client_id.sql?raw';
 import m12 from '../migrations/0012_employee_name_split.sql?raw';
 import m13 from '../migrations/0013_project_assignments.sql?raw';
 import m14 from '../migrations/0014_time_entry_status.sql?raw';
+import m15 from '../migrations/0015_audit_trail.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql
@@ -102,7 +103,7 @@ async function seedProject() {
 
 // ── Apply all migrations once ─────────────────────────────────────────────────
 beforeAll(async () => {
-  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14]) {
+  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14,m15]) {
     await applyMigration(m);
   }
 });

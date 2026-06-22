@@ -6,6 +6,7 @@ import ResetPassword   from './screens/ResetPassword.jsx';
 import ActivateAccount from './screens/ActivateAccount.jsx';
 import ChangePassword  from './screens/ChangePassword.jsx';
 import Dashboard       from './screens/Dashboard.jsx';
+import MyTime         from './screens/MyTime.jsx';
 import Profile         from './screens/Profile.jsx';
 import Projects        from './screens/admin/Projects.jsx';
 import Employees       from './screens/admin/Employees.jsx';
@@ -25,6 +26,14 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   return user ? children : <Navigate to="/login" replace />;
+}
+
+function EmployeeRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'employee') return <Navigate to="/dashboard" replace />;
+  return children;
 }
 
 function AdminOrManagerRoute({ children }) {
@@ -58,6 +67,9 @@ export default function App() {
           <Route path="/employees"  element={<AdminOrManagerRoute><Employees /></AdminOrManagerRoute>} />
           <Route path="/teams"      element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
           <Route path="/time-entries" element={<AdminOrManagerRoute><TimeEntries /></AdminOrManagerRoute>} />
+
+          {/* Employee self-service (Sprint 3C) */}
+          <Route path="/my-time" element={<EmployeeRoute><MyTime /></EmployeeRoute>} />
 
           {/* Unknown paths fall back to home redirect */}
           <Route path="*" element={<HomeRoute />} />
