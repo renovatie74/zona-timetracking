@@ -3,6 +3,7 @@ import { useAuth } from '../auth.jsx';
 import { useGPS }  from '../hooks/useGPS.js';
 import { useNavigate } from 'react-router-dom';
 import EmployeeNav from '../components/EmployeeNav.jsx';
+import { getBusinessToday, formatBusinessTime } from '../lib/businessTime.js';
 
 const api = path => `/api${path}`;
 
@@ -13,16 +14,6 @@ function fmtDuration(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${pad2(m)}m`;
-}
-
-function fmtTime(isoString) {
-  if (!isoString) return '—';
-  const d = new Date(isoString);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function fmtDate(isoDate) {
@@ -155,7 +146,7 @@ function TodayHistory({ entries }) {
         {entries.map(e => (
           <li key={e.id} className="em-history-item">
             <div className="em-history-times">
-              {fmtTime(e.start_time)}{e.stop_time ? ` – ${fmtTime(e.stop_time)}` : ' – ongoing'}
+              {formatBusinessTime(e.start_time)}{e.stop_time ? ` – ${formatBusinessTime(e.stop_time)}` : ' – ongoing'}
             </div>
             <div className="em-history-project">{e.project_name}</div>
             {e.stop_time && (
@@ -185,7 +176,7 @@ function IdleView({ user, todayEntries, onCheckin }) {
       </header>
 
       <div className="em-date-bar">
-        <span className="em-date-label">{fmtDate(todayISO())}</span>
+        <span className="em-date-label">{fmtDate(getBusinessToday())}</span>
       </div>
 
       {(total > 0 || last) && (
@@ -242,7 +233,7 @@ function ActiveView({ user, session, onCheckout, onSwitch }) {
         <div className="em-session-project">{session.project_name}</div>
         <div className="em-session-time">
           <span className="em-time-label">Started</span>
-          <span className="em-time-value">{fmtTime(session.start_time)}</span>
+          <span className="em-time-value">{formatBusinessTime(session.start_time)}</span>
         </div>
         <div className="em-session-elapsed">
           <span className="em-elapsed-label">Duration</span>
@@ -283,11 +274,11 @@ function SummaryView({ summary, onDone }) {
         </div>
         <div className="em-summary-row">
           <span>Start</span>
-          <strong>{fmtTime(summary.start_time)}</strong>
+          <strong>{formatBusinessTime(summary.start_time)}</strong>
         </div>
         <div className="em-summary-row">
           <span>End</span>
-          <strong>{fmtTime(summary.stop_time)}</strong>
+          <strong>{formatBusinessTime(summary.stop_time)}</strong>
         </div>
         <div className="em-summary-row">
           <span>Duration</span>
@@ -345,7 +336,7 @@ export default function EmployeeDashboard() {
   // null | 'checkout' | 'switch' — set when checkout returns short_session: true
   const [discardMode,  setDiscardMode]  = useState(null);
 
-  const today = todayISO();
+  const today = getBusinessToday();
 
   const loadAll = useCallback(async () => {
     try {

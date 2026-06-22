@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import EmployeeNav from '../components/EmployeeNav.jsx';
+import {
+  getBusinessToday,
+  getCurrentBusinessWeekStart,
+  getBusinessWeekStart,
+  isFutureBusinessDate,
+  formatBusinessTime,
+} from '../lib/businessTime.js';
 
 const api = path => `/api${path}`;
 
@@ -14,23 +21,8 @@ function fmtDuration(minutes) {
   return `${h}h ${pad2(m)}m`;
 }
 
-function fmtTime(isoString) {
-  if (!isoString) return '—';
-  const d = new Date(isoString);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
-
-// All week arithmetic is UTC-based to match backend date() queries.
-function weekStartFor(dateStr) {
-  const d   = new Date(dateStr + 'T00:00:00Z');
-  const day = d.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-function weekEndFor(dateStr) {
-  const d = new Date(weekStartFor(dateStr) + 'T00:00:00Z');
+function weekEndFor(weekStart) {
+  const d = new Date(weekStart + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + 6);
   return d.toISOString().slice(0, 10);
 }
@@ -39,20 +31,6 @@ function addWeeks(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + n * 7);
   return d.toISOString().slice(0, 10);
-}
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-// Uses local browser date so UAE +4 employees see the right day boundary.
-function localTodayISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function isFutureDateStr(dateStr) {
-  return dateStr > localTodayISO();
 }
 
 function fmtWeekRange(start, end) {
@@ -71,7 +49,6 @@ function fmtDayHeading(dateStr) {
   return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
-// Build array of 7 date strings Mon→Sun for a given week start
 function weekDays(weekStart) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart + 'T00:00:00Z');
@@ -80,7 +57,6 @@ function weekDays(weekStart) {
   });
 }
 
-// Source badge
 function SourceBadge({ source }) {
   if (source === 'automatic')    return <span className="mt-source-badge mt-source-auto">Auto</span>;
   if (source === 'manual_worker') return <span className="mt-source-badge mt-source-manual">Manual</span>;
@@ -88,7 +64,7 @@ function SourceBadge({ source }) {
   return null;
 }
 
-// ── Project picker (no search, scrollable list) ───────────────────────────────
+// ── Project picker ────────────────────────────────────────────────────────────
 function ProjectPicker({ projects, onSelect, onCancel }) {
   const recent = projects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank);
   const rest   = projects.filter(p => p.recent_rank == null);
@@ -137,7 +113,6 @@ function ProjectPicker({ projects, onSelect, onCancel }) {
 function EntryFormSheet({ date, projects, initialEntry, onSave, onCancel, busy }) {
   const isEdit = !!initialEntry;
 
-  // Default times: for new entries use 08:00–09:00 on the target date
   const defaultStart = initialEntry
     ? new Date(initialEntry.start_time).toTimeString().slice(0, 5)
     : '08:00';
@@ -157,7 +132,6 @@ function EntryFormSheet({ date, projects, initialEntry, onSave, onCancel, busy }
   const handleSave = () => {
     if (!selectedProject) { setFormError('Please select a project.'); return; }
     if (!startTime || !stopTime) { setFormError('Start and end times are required.'); return; }
-    // Build UTC ISO strings from local-like date+time combination
     const startISO = new Date(`${date}T${startTime}`).toISOString();
     const stopISO  = new Date(`${date}T${stopTime}`).toISOString();
     if (stopISO <= startISO) { setFormError('End time must be after start time.'); return; }
@@ -246,6 +220,62 @@ function EntryFormSheet({ date, projects, initialEntry, onSave, onCancel, busy }
   );
 }
 
+// ── Mileage bottom-sheet modal ────────────────────────────────────────────────
+function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
+  const [km,  setKm]  = useState(initial != null ? String(initial) : '');
+  const [err, setErr] = useState('');
+
+  const handleSave = () => {
+    const v = Number(km);
+    if (km === '' || !isFinite(v) || v < 0) {
+      setErr('Enter a valid distance (0 km or more).');
+      return;
+    }
+    setErr('');
+    onSave(v);
+  };
+
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const s = new Date(weekStart + 'T00:00:00Z');
+  const e = new Date(weekStart + 'T00:00:00Z');
+  e.setUTCDate(e.getUTCDate() + 6);
+  const weekLabel = `${months[s.getUTCMonth()]} ${s.getUTCDate()} – ${months[e.getUTCMonth()]} ${e.getUTCDate()}`;
+
+  return (
+    <div className="em-overlay" onClick={onCancel}>
+      <div className="mt-form-sheet" onClick={ev => ev.stopPropagation()}>
+        <div className="mt-form-header">
+          <h2 className="mt-form-title">Weekly Mileage</h2>
+          <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
+        </div>
+
+        <div className="mt-form-date">{weekLabel}</div>
+
+        {err && <div className="mt-form-error">{err}</div>}
+
+        <div className="mt-form-field">
+          <label className="mt-form-label" htmlFor="mt-km">Distance (km)</label>
+          <input
+            id="mt-km"
+            className="mt-time-input"
+            type="number"
+            min="0"
+            step="0.1"
+            placeholder="0"
+            value={km}
+            onChange={ev => setKm(ev.target.value)}
+            autoFocus
+          />
+        </div>
+
+        <button className="mt-save-btn" onClick={handleSave} disabled={busy}>
+          {busy ? 'Saving…' : 'Save Mileage'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Delete confirmation ───────────────────────────────────────────────────────
 function DeleteConfirm({ onConfirm, onCancel, busy }) {
   return (
@@ -273,7 +303,7 @@ function DaySection({ dateStr, entries, isCurrentWeek, onAdd, onEdit, onDelete }
           <span className="mt-day-name">{fmtDayHeading(dateStr)}</span>
           {total > 0 && <span className="mt-day-total">{fmtDuration(total)}</span>}
         </div>
-        {isCurrentWeek && !isFutureDateStr(dateStr) && (
+        {isCurrentWeek && !isFutureBusinessDate(dateStr) && (
           <button className="mt-add-btn" onClick={() => onAdd(dateStr)} aria-label={`Add entry for ${dateStr}`}>
             + Add
           </button>
@@ -291,13 +321,13 @@ function DaySection({ dateStr, entries, isCurrentWeek, onAdd, onEdit, onDelete }
                 <div className="mt-entry-detail">
                   <span className="mt-entry-project">{e.project_name}</span>
                   <span className="mt-entry-times">
-                    {fmtTime(e.start_time)} – {e.stop_time ? fmtTime(e.stop_time) : 'ongoing'}
+                    {formatBusinessTime(e.start_time)} – {e.stop_time ? formatBusinessTime(e.stop_time) : 'ongoing'}
                     {e.stop_time && <span className="mt-entry-dur">{fmtDuration(e.rounded_duration_minutes ?? e.duration_minutes)}</span>}
                   </span>
                   {e.notes && <span className="mt-entry-notes">{e.notes}</span>}
                 </div>
               </div>
-              {isCurrentWeek && e.entry_source === 'manual_worker' && e.stop_time && !isFutureDateStr(e.start_time.slice(0, 10)) && (
+              {isCurrentWeek && e.entry_source === 'manual_worker' && e.stop_time && !isFutureBusinessDate(e.start_time.slice(0, 10)) && (
                 <div className="mt-entry-actions">
                   <button className="mt-action-btn" onClick={() => onEdit(e)} aria-label="Edit entry">
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
@@ -324,31 +354,36 @@ export default function MyTime() {
   const { logout } = useAuth();
   const navigate   = useNavigate();
 
-  const today        = todayISO();
-  const [weekStart, setWeekStart] = useState(() => weekStartFor(today));
-  const weekEnd      = weekEndFor(weekStart);
-  const isCurrentWk  = weekStart === weekStartFor(today);
+  const [weekStart, setWeekStart] = useState(getCurrentBusinessWeekStart);
+  const weekEnd     = weekEndFor(weekStart);
+  const isCurrentWk = weekStart === getCurrentBusinessWeekStart();
 
-  const [entries,   setEntries]   = useState([]);
-  const [projects,  setProjects]  = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [busy,      setBusy]      = useState(false);
-  const [error,     setError]     = useState('');
+  const [entries,      setEntries]      = useState([]);
+  const [projects,     setProjects]     = useState([]);
+  const [mileage,      setMileage]      = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [busy,         setBusy]         = useState(false);
+  const [mileageBusy,  setMileageBusy]  = useState(false);
+  const [error,        setError]        = useState('');
+  const [mileageModal, setMileageModal] = useState(false);
 
-  // null | { date: 'YYYY-MM-DD', entry: null|{...} }
-  const [formTarget,    setFormTarget]    = useState(null);
-  const [deleteTarget,  setDeleteTarget]  = useState(null);
+  const [formTarget,   setFormTarget]   = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const loadWeek = useCallback(async () => {
     setLoading(true);
     try {
-      const [myRes, projRes] = await Promise.all([
-        fetch(api(`/my-time?week=${weekStart}`),  { credentials: 'include' }),
-        fetch(api('/projects/mine'),               { credentials: 'include' }),
+      const [myRes, projRes, mlRes] = await Promise.all([
+        fetch(api(`/my-time?week=${weekStart}`),              { credentials: 'include' }),
+        fetch(api('/projects/mine'),                           { credentials: 'include' }),
+        fetch(api(`/my-mileage?week_start=${weekStart}`),     { credentials: 'include' }),
       ]);
-      const [myData, projData] = await Promise.all([myRes.json(), projRes.json()]);
-      setEntries(myData.data ?? []);
+      const [myData, projData, mlData] = await Promise.all([
+        myRes.json(), projRes.json(), mlRes.json(),
+      ]);
+      setEntries(myData.data   ?? []);
       setProjects(projData.data ?? []);
+      setMileage(mlData.data   ?? null);
     } catch {
       // leave previous state
     } finally {
@@ -401,6 +436,29 @@ export default function MyTime() {
     setBusy(false);
   };
 
+  const handleSaveMileage = async (km) => {
+    setMileageBusy(true);
+    setError('');
+    try {
+      const res = await fetch(api('/my-mileage'), {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_start: weekStart, mileage_km: km }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMileage(data.data);
+        setMileageModal(false);
+      } else {
+        setError(data.error ?? 'Could not save mileage');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+    setMileageBusy(false);
+  };
+
   const handleSignOut = async () => {
     await logout();
     navigate('/login', { replace: true });
@@ -410,7 +468,6 @@ export default function MyTime() {
     .filter(e => e.stop_time)
     .reduce((s, e) => s + (e.rounded_duration_minutes ?? e.duration_minutes ?? 0), 0);
 
-  // Group entries by UTC date
   const byDate = {};
   for (const e of entries) {
     const key = e.start_time.slice(0, 10);
@@ -469,6 +526,25 @@ export default function MyTime() {
           </div>
         )}
 
+        {/* Mileage row */}
+        <div className="mt-mileage-row">
+          <span className="mt-mileage-label">Mileage</span>
+          <div className="mt-mileage-value">
+            <strong>{mileage != null ? `${mileage.mileage_km} km` : '—'}</strong>
+            {isCurrentWk && (
+              <button
+                className="mt-mileage-edit-btn"
+                onClick={() => setMileageModal(true)}
+                aria-label="Edit mileage"
+              >
+                <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                  <path d="M10.5 2L13 4.5L5 12.5H2.5V10L10.5 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Day list — scrollable */}
         <div className="mt-day-list">
           {weekDays(weekStart).map(dateStr => (
@@ -487,6 +563,16 @@ export default function MyTime() {
       </div>
 
       <EmployeeNav />
+
+      {mileageModal && (
+        <MileageSheet
+          weekStart={weekStart}
+          initial={mileage?.mileage_km}
+          onSave={handleSaveMileage}
+          onCancel={() => setMileageModal(false)}
+          busy={mileageBusy}
+        />
+      )}
 
       {formTarget && (
         <EntryFormSheet

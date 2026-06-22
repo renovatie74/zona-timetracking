@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate }         from 'react-router-dom';
-import EmployeeNav             from '../components/EmployeeNav.jsx';
+import { useState, useEffect }         from 'react';
+import { useNavigate }                 from 'react-router-dom';
+import EmployeeNav                     from '../components/EmployeeNav.jsx';
+import { getCurrentBusinessWeekStart } from '../lib/businessTime.js';
 
 function fetchJSON(path, opts = {}) {
   return fetch(path, { credentials: 'include', ...opts }).then(async r => {
@@ -8,14 +9,6 @@ function fetchJSON(path, opts = {}) {
     if (!r.ok) throw Object.assign(new Error(data.error ?? 'Request failed'), { status: r.status });
     return data;
   });
-}
-
-function currentWeekStart() {
-  const d      = new Date();
-  const utcDay = d.getUTCDay();
-  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
-  return monday.toISOString().slice(0, 10);
 }
 
 function fmtWeekRange(weekStart) {
@@ -245,7 +238,7 @@ export default function Extras() {
   const [busy,         setBusy]         = useState(false);
   const [deleteId,     setDeleteId]     = useState(null);
 
-  const CUR_WEEK = currentWeekStart();
+  const CUR_WEEK = getCurrentBusinessWeekStart();
 
   useEffect(() => {
     loadProjects();

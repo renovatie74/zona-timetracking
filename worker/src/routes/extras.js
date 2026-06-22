@@ -1,18 +1,12 @@
-import { requireRole, requireAuth } from '../middleware/auth.js';
-import { getManagerScope }          from '../lib/scope.js';
+import { requireRole, requireAuth }        from '../middleware/auth.js';
+import { getManagerScope }                 from '../lib/scope.js';
+import { getCurrentBusinessWeekStart,
+         isCurrentBusinessWeek }           from '../lib/businessTime.js';
 
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
 const VALID_TYPES    = ['extra_work', 'own_cost'];
 const VALID_STATUSES = ['open', 'processed'];
-
-function currentWeekStart() {
-  const d      = new Date();
-  const utcDay = d.getUTCDay();
-  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
-  return monday.toISOString().slice(0, 10);
-}
 
 function validateKm(mileage_km) {
   if (mileage_km == null) return 'mileage_km is required';
@@ -72,14 +66,13 @@ export async function listMine(request, env) {
      ORDER  BY week_start DESC`,
   ).bind(request.user.id).all();
 
-  const curWeek = currentWeekStart();
   const mileageCards = wmRows.map(wm => ({
     id:           null,
     wm_id:        wm.wm_id,
     type:         'mileage',
     mileage_km:   wm.mileage_km,
     week_start:   wm.week_start,
-    status:       wm.week_start === curWeek ? 'open' : 'recorded',
+    status:       isCurrentBusinessWeek(wm.week_start) ? 'open' : 'recorded',
     created_at:   wm.updated_at,
     project_id:   null,
     project_name: null,
@@ -108,7 +101,7 @@ export async function createMine(request, env) {
     if (kmErr) return Response.json({ error: kmErr }, { status: 400 });
 
     const km       = Number(mileage_km);
-    const weekStart = currentWeekStart();
+    const weekStart = getCurrentBusinessWeekStart();
     const now       = new Date().toISOString();
 
     await env.DB.prepare(

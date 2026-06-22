@@ -104,12 +104,14 @@ async function assignProject(userId, projectId) {
   ).bind(projectId, userId, now).run();
 }
 
+// Mirrors business logic: current Monday in Europe/Amsterdam
 function currentWeekStart() {
-  const d      = new Date();
-  const utcDay = d.getUTCDay();
-  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
-  return monday.toISOString().slice(0, 10);
+  const today  = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Amsterdam' });
+  const d      = new Date(today + 'T00:00:00Z');
+  const day    = d.getUTCDay();
+  const diff   = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
 }
 
 let admin, worker, projectId;

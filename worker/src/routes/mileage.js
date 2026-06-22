@@ -1,15 +1,8 @@
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { getManagerScope }          from '../lib/scope.js';
+import { requireAuth, requireRole }       from '../middleware/auth.js';
+import { getManagerScope }                from '../lib/scope.js';
+import { getCurrentBusinessWeekStart }    from '../lib/businessTime.js';
 
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
-
-function currentWeekStart() {
-  const d      = new Date();
-  const utcDay = d.getUTCDay(); // 0=Sun, 1=Mon…
-  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
-  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
-  return monday.toISOString().slice(0, 10);
-}
 
 function isValidWeekStart(str) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
@@ -71,7 +64,7 @@ export async function upsertMyMileage(request, env) {
     return Response.json({ error: 'week_start must be a Monday (YYYY-MM-DD)' }, { status: 400 });
   }
 
-  const current = currentWeekStart();
+  const current = getCurrentBusinessWeekStart();
   if (week_start !== current) {
     return Response.json({ error: 'Mileage can only be updated for the current week' }, { status: 403 });
   }
