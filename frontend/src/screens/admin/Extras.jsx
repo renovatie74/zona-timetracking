@@ -4,8 +4,8 @@ import { api }      from '../../api.js';
 import { useAuth }  from '../../auth.jsx';
 import AppShell     from '../AppShell.jsx';
 
-const TYPE_LABELS   = { extra_work: 'Extra Work', own_cost: 'Own Cost' };
-const EMPTY_FORM    = { user_id: '', project_id: '', type: 'extra_work', description: '' };
+const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost', mileage: 'Mileage' };
+const EMPTY_FORM  = { user_id: '', project_id: '', type: 'own_cost', description: '', mileage_km: '' };
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -13,7 +13,9 @@ function fmtDate(iso) {
 }
 
 function TypeBadge({ type }) {
-  const cls = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
+  const cls = type === 'extra_work' ? 'ex-badge-work'
+            : type === 'mileage'    ? 'ex-badge-mileage'
+            :                        'ex-badge-cost';
   return <span className={`ex-type-badge ${cls}`}>{TYPE_LABELS[type] ?? type}</span>;
 }
 
@@ -25,6 +27,11 @@ function StatusBadge({ status }) {
   );
 }
 
+function ExtraValue({ ex }) {
+  if (ex.type === 'mileage') return <span>{ex.mileage_km} km</span>;
+  return <span className="ex-description-cell">{ex.description}</span>;
+}
+
 export default function AdminExtras() {
   const { user }    = useAuth();
   const navigate    = useNavigate();
@@ -32,7 +39,6 @@ export default function AdminExtras() {
 
   const isAdmin = user?.role === 'administrator';
 
-  // Filters — initialise from URL params so links from project/employee modals work
   const [statusFilter,  setStatusFilter]  = useState(searchParams.get('status')     ?? 'open');
   const [projectFilter, setProjectFilter] = useState(searchParams.get('project_id') ?? '');
   const [userFilter,    setUserFilter]    = useState(searchParams.get('user_id')    ?? '');
@@ -103,7 +109,8 @@ export default function AdminExtras() {
       user_id:     String(item.user_id),
       project_id:  String(item.project_id),
       type:        item.type,
-      description: item.description,
+      description: item.description ?? '',
+      mileage_km:  item.mileage_km != null ? String(item.mileage_km) : '',
     });
     setError('');
     setModal({ mode: 'edit', id: item.id, item });
@@ -115,11 +122,15 @@ export default function AdminExtras() {
     setError('');
     try {
       const body = {
-        user_id:     Number(form.user_id),
-        project_id:  Number(form.project_id),
-        type:        form.type,
-        description: form.description,
+        user_id:    Number(form.user_id),
+        project_id: Number(form.project_id),
+        type:       form.type,
       };
+      if (form.type === 'mileage') {
+        body.mileage_km = Number(form.mileage_km);
+      } else {
+        body.description = form.description;
+      }
       if (modal.mode === 'create') {
         await api.post('/api/extras', body);
       } else {
@@ -172,7 +183,7 @@ export default function AdminExtras() {
     }
   }
 
-  const colCount = 8;
+  const colCount = 7;
 
   return (
     <AppShell title="Extras">
@@ -216,8 +227,9 @@ export default function AdminExtras() {
             value={typeFilter}
             onChange={e => applyFilters(statusFilter, projectFilter, userFilter, e.target.value, dateFrom, dateTo)}>
             <option value="">All Types</option>
-            <option value="extra_work">Extra Work</option>
             <option value="own_cost">Own Cost</option>
+            <option value="extra_work">Extra Work</option>
+            <option value="mileage">Mileage</option>
           </select>
 
           <input type="date" className="form-input toolbar-select" style={{ width: '145px' }}
@@ -240,7 +252,7 @@ export default function AdminExtras() {
                 <th>Employee</th>
                 <th>Project</th>
                 <th>Type</th>
-                <th>Description</th>
+                <th>Value</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -268,9 +280,7 @@ export default function AdminExtras() {
                     )}
                   </td>
                   <td><TypeBadge type={ex.type} /></td>
-                  <td style={{ maxWidth: 320 }}>
-                    <span className="ex-description-cell">{ex.description}</span>
-                  </td>
+                  <td style={{ maxWidth: 320 }}><ExtraValue ex={ex} /></td>
                   <td><StatusBadge status={ex.status} /></td>
                   <td>
                     <div className="td-actions">
@@ -341,19 +351,36 @@ export default function AdminExtras() {
                 <label className="form-label">Type *</label>
                 <select className="form-select" value={form.type}
                   onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                  <option value="extra_work">Extra Work</option>
                   <option value="own_cost">Own Cost</option>
+                  <option value="extra_work">Extra Work</option>
+                  <option value="mileage">Mileage</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Description *</label>
-                <textarea className="form-input" required rows={4}
-                  style={{ resize: 'vertical', minHeight: 80 }}
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                />
-              </div>
+              {form.type === 'mileage' ? (
+                <div className="form-group">
+                  <label className="form-label">Mileage (km) *</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    required
+                    min="0.01"
+                    step="0.01"
+                    placeholder="e.g. 42 or 18.5"
+                    value={form.mileage_km}
+                    onChange={e => setForm(f => ({ ...f, mileage_km: e.target.value }))}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label className="form-label">Description *</label>
+                  <textarea className="form-input" required rows={4}
+                    style={{ resize: 'vertical', minHeight: 80 }}
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  />
+                </div>
+              )}
 
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>

@@ -25,6 +25,7 @@ import migration13 from '../migrations/0013_project_assignments.sql?raw';
 import migration14 from '../migrations/0014_time_entry_status.sql?raw';
 import migration15 from '../migrations/0015_audit_trail.sql?raw';
 import migration16 from '../migrations/0016_extras.sql?raw';
+import migration17 from '../migrations/0017_extras_mileage.sql?raw';
 
 const env = {
   ...cfEnv,
@@ -94,7 +95,7 @@ beforeAll(async () => {
     migration01, migration02, migration03, migration04,
     migration05, migration06, migration07, migration08, migration09,
     migration10, migration11, migration12,
-    migration13, migration14, migration15, migration16,
+    migration13, migration14, migration15, migration16, migration17,
   ];
   for (const sql of migrations) await applyMigration(sql);
 

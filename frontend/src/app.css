@@ -1572,6 +1572,10 @@ tbody tr:hover { background: #FDFCFA; }
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
 }
+.ex-badge-mileage {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+}
 
 /* ── Status badges ───────────────────────────────────────────────────────────── */
 .ex-status-badge {

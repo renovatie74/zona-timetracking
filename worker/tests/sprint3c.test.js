@@ -37,6 +37,7 @@ import m13 from '../migrations/0013_project_assignments.sql?raw';
 import m14 from '../migrations/0014_time_entry_status.sql?raw';
 import m15 from '../migrations/0015_audit_trail.sql?raw';
 import m16 from '../migrations/0016_extras.sql?raw';
+import m17 from '../migrations/0017_extras_mileage.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql
@@ -136,7 +137,7 @@ async function seedAutoEntry(userId, projectId, dateStr = null) {
 
 // ── Apply all migrations once ─────────────────────────────────────────────────
 beforeAll(async () => {
-  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14,m15,m16]) {
+  for (const m of [m01,m02,m03,m04,m05,m06,m07,m08,m09,m10,m11,m12,m13,m14,m15,m16,m17]) {
     await applyMigration(m);
   }
 });

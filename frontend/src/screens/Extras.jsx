@@ -10,10 +10,12 @@ function fetchJSON(path, opts = {}) {
   });
 }
 
-const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost' };
+const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost', mileage: 'Mileage' };
 
 function TypeBadge({ type }) {
-  const cls = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
+  const cls = type === 'extra_work' ? 'ex-badge-work'
+            : type === 'mileage'    ? 'ex-badge-mileage'
+            :                        'ex-badge-cost';
   return <span className={`ex-type-badge ${cls}`}>{TYPE_LABELS[type] ?? type}</span>;
 }
 
@@ -29,6 +31,13 @@ function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function ExtraValue({ ex }) {
+  if (ex.type === 'mileage') {
+    return <div className="ex-card-description">{ex.mileage_km} km</div>;
+  }
+  return <div className="ex-card-description">{ex.description}</div>;
 }
 
 // ── Project picker ────────────────────────────────────────────────────────────
@@ -79,23 +88,35 @@ function ProjectPicker({ projects, onSelect, onCancel }) {
 function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
   const isEdit = !!initial;
 
-  const [type,            setType]            = useState(initial?.type ?? 'extra_work');
+  const [type,            setType]            = useState(initial?.type ?? 'own_cost');
   const [selectedProject, setSelectedProject] = useState(
     initial ? (projects.find(p => p.id === initial.project_id) ?? null) : null,
   );
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [picking,     setPicking]     = useState(false);
-  const [formError,   setFormError]   = useState('');
+  const [mileageKm,   setMileageKm]   = useState(
+    initial?.mileage_km != null ? String(initial.mileage_km) : '',
+  );
+  const [picking,   setPicking]   = useState(false);
+  const [formError, setFormError] = useState('');
 
   function handleSave() {
     if (!selectedProject) { setFormError('Please select a project.'); return; }
-    if (!description.trim()) { setFormError('Description is required.'); return; }
+    if (type === 'mileage') {
+      const km = Number(mileageKm);
+      if (!mileageKm || !isFinite(km) || km <= 0) {
+        setFormError('Mileage (km) must be a positive number.');
+        return;
+      }
+    } else {
+      if (!description.trim()) { setFormError('Description is required.'); return; }
+    }
     setFormError('');
     onSave({
       id:          initial?.id,
       project_id:  selectedProject.id,
       type,
-      description: description.trim(),
+      description: type !== 'mileage' ? description.trim() : undefined,
+      mileage_km:  type === 'mileage' ? Number(mileageKm) : undefined,
     });
   }
 
@@ -122,8 +143,9 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
               value={type}
               onChange={e => setType(e.target.value)}
             >
-              <option value="extra_work">Extra Work</option>
               <option value="own_cost">Own Cost</option>
+              <option value="extra_work">Extra Work</option>
+              <option value="mileage">Mileage</option>
             </select>
           </div>
 
@@ -153,17 +175,33 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
             </button>
           </div>
 
-          {/* Description */}
-          <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Description *</label>
-            <textarea
-              className="ex-description-input"
-              placeholder="Describe the extra work or cost…"
-              value={description}
-              rows={4}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
+          {/* Description (own_cost / extra_work) or Mileage (km) */}
+          {type === 'mileage' ? (
+            <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+              <label className="mt-form-label">Mileage (km) *</label>
+              <input
+                className="ex-form-select"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="e.g. 42 or 18.5"
+                value={mileageKm}
+                onChange={e => setMileageKm(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+          ) : (
+            <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+              <label className="mt-form-label">Description *</label>
+              <textarea
+                className="ex-description-input"
+                placeholder="Describe the extra work or cost…"
+                value={description}
+                rows={4}
+                onChange={e => setDescription(e.target.value)}
+              />
+            </div>
+          )}
 
           <button
             className="mt-save-btn"
@@ -232,20 +270,24 @@ export default function Extras() {
     loadExtras(sf);
   }
 
-  async function handleSave({ id, project_id, type, description }) {
+  async function handleSave({ id, project_id, type, description, mileage_km }) {
     setBusy(true);
     try {
+      const body = { project_id, type };
+      if (type === 'mileage') body.mileage_km = mileage_km;
+      else body.description = description;
+
       if (id) {
         await fetchJSON(`/api/extras/mine/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id, type, description }),
+          body: JSON.stringify(body),
         });
       } else {
         await fetchJSON('/api/extras/mine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id, type, description }),
+          body: JSON.stringify(body),
         });
       }
       setForm(null);
@@ -309,7 +351,7 @@ export default function Extras() {
                   <span className="ex-card-date">{fmtDate(ex.created_at)}</span>
                 </div>
                 <div className="ex-card-project">{ex.project_name}</div>
-                <div className="ex-card-description">{ex.description}</div>
+                <ExtraValue ex={ex} />
                 {ex.status === 'open' && (
                   <div className="ex-card-actions">
                     <button
