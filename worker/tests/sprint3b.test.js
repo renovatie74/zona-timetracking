@@ -485,3 +485,165 @@ it('TC-3B21: checkout applies duration-based rounding (68 min → 75 min)', asyn
   const body = await res.json();
   expect(body.data.rounded_duration_minutes).toBe(75);
 });
+
+// ── TC-3B22: short checkout returns 422 with short_session flag ───────────────
+it('TC-3B22: checkout < 10 min returns 422 with short_session: true', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 2);  // only 2 minutes
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(422);
+  const body = await res.json();
+  expect(body.short_session).toBe(true);
+  expect(body.duration_minutes).toBeGreaterThanOrEqual(0);
+  expect(body.error).toBeTruthy();
+});
+
+// ── TC-3B23: discard soft-deletes the active session (is_deleted = 1) ─────────
+it('TC-3B23: discard sets is_deleted = 1 on the open session', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  const checkinRes = await timeEntryRoutes.checkin(r, env);
+  const checkinBody = await checkinRes.json();
+  const entryId = checkinBody.data.id;
+
+  const d = makeRequest('POST', '/api/time-entries/discard', null, cook);
+  d.params = {};
+  const res  = await timeEntryRoutes.discard(d, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.data.discarded).toBe(true);
+  expect(body.data.entry_id).toBe(entryId);
+
+  const row = await env.DB.prepare('SELECT is_deleted, stop_time FROM TimeEntries WHERE id = ?').bind(entryId).first();
+  expect(row.is_deleted).toBe(1);
+  expect(row.stop_time).toBeTruthy();
+});
+
+// ── TC-3B24: discarded session does not appear in employee /mine history ───────
+it('TC-3B24: discarded session absent from /mine history', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+
+  const d = makeRequest('POST', '/api/time-entries/discard', null, cook);
+  d.params = {};
+  await timeEntryRoutes.discard(d, env);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const m = makeRequest('GET', `/api/time-entries/mine?date_from=${today}&date_to=${today}`, null, cook);
+  m.params = {};
+  const res  = await timeEntryRoutes.mine(m, env);
+  const body = await res.json();
+  // all returned entries must have stop_time (open ones are excluded anyway)
+  // and none should be the discarded entry (which has is_deleted = 1)
+  expect(body.data.every(e => e.project_id === pid ? false : true) || body.data.length === 0).toBe(true);
+  // More direct: count entries for this user+project after discard should be 0 (only the discarded one existed)
+  const count = body.data.filter(e => e.project_id === pid).length;
+  expect(count).toBe(0);
+});
+
+// ── TC-3B25: discarded session does not affect today total ─────────────────────
+it('TC-3B25: today total excludes discarded sessions', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  // Do one valid 15-min session
+  const r1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r1.params = {};
+  await timeEntryRoutes.checkin(r1, env);
+  await backdateCheckin(uid, 15);
+  const o1 = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o1.params = {};
+  await timeEntryRoutes.checkout(o1, env);
+
+  // Now do a short session and discard it
+  const r2 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r2.params = {};
+  await timeEntryRoutes.checkin(r2, env);
+  const d = makeRequest('POST', '/api/time-entries/discard', null, cook);
+  d.params = {};
+  await timeEntryRoutes.discard(d, env);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const m = makeRequest('GET', `/api/time-entries/mine?date_from=${today}&date_to=${today}`, null, cook);
+  m.params = {};
+  const res  = await timeEntryRoutes.mine(m, env);
+  const body = await res.json();
+  // Only the valid 15-min entry should appear
+  expect(body.data.length).toBe(1);
+  expect(body.data[0].stop_time).toBeTruthy();
+});
+
+// ── TC-3B26: cancel (no discard call) keeps active session open ───────────────
+it('TC-3B26: not calling discard after short-session 422 keeps session active', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 2);
+
+  // Attempt checkout — get 422 (user sees dialog, clicks Cancel = does nothing)
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res422 = await timeEntryRoutes.checkout(o, env);
+  expect(res422.status).toBe(422);
+
+  // Active session must still exist
+  const a = makeRequest('GET', '/api/time-entries/active', null, cook);
+  a.params = {};
+  const activeRes  = await timeEntryRoutes.active(a, env);
+  const activeBody = await activeRes.json();
+  expect(activeBody.data).not.toBeNull();
+  expect(activeBody.data.project_id).toBe(pid);
+});
+
+// ── TC-3B27: discard with no active session returns 404 ──────────────────────
+it('TC-3B27: discard with no open session returns 404', async () => {
+  const uid  = await seedUser();
+  const cook = await cookieFor(uid, 'employee');
+  const d = makeRequest('POST', '/api/time-entries/discard', null, cook);
+  d.params = {};
+  const res = await timeEntryRoutes.discard(d, env);
+  expect(res.status).toBe(404);
+});
+
+// ── TC-3B28: sessions >= 10 min checkout normally (no short_session flag) ─────
+it('TC-3B28: checkout at exactly 10 min returns 200 without short_session flag', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const r = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  r.params = {};
+  await timeEntryRoutes.checkin(r, env);
+  await backdateCheckin(uid, 10);
+
+  const o = makeRequest('POST', '/api/time-entries/checkout', {}, cook);
+  o.params = {};
+  const res  = await timeEntryRoutes.checkout(o, env);
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.short_session).toBeUndefined();
+  expect(body.data.stop_time).toBeTruthy();
+});

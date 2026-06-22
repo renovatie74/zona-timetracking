@@ -367,7 +367,11 @@ export async function checkout(request, env) {
 
   if (rounded.duration_minutes < MIN_DURATION_MINUTES) {
     return Response.json(
-      { error: `Session is too short to be recorded. Minimum work duration is ${MIN_DURATION_MINUTES} minutes.` },
+      {
+        error: `Session is too short to be recorded. Minimum work duration is ${MIN_DURATION_MINUTES} minutes.`,
+        short_session: true,
+        duration_minutes: rounded.duration_minutes,
+      },
       { status: 422 },
     );
   }
@@ -407,6 +411,34 @@ export async function checkout(request, env) {
   ).bind(entry.id).first();
 
   return Response.json({ data: closed });
+}
+
+// ── Discard short session ─────────────────────────────────────────────────────
+// Soft-deletes the employee's currently open session.
+// Only intended for sessions that failed the minimum-duration check (< 10 min).
+// The entry is marked is_deleted = 1 so it never surfaces in history or totals.
+export async function discard(request, env) {
+  const guard = await requireAuth(request, env);
+  if (guard) return guard;
+
+  const entry = await env.DB.prepare(
+    `SELECT id, start_time
+     FROM   TimeEntries
+     WHERE  user_id = ? AND stop_time IS NULL AND is_deleted = 0
+     ORDER  BY start_time DESC
+     LIMIT  1`,
+  ).bind(request.user.id).first();
+
+  if (!entry) return Response.json({ error: 'No active session found' }, { status: 404 });
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE TimeEntries
+     SET  is_deleted = 1, stop_time = ?, updated_at = ?
+     WHERE id = ?`,
+  ).bind(now, now, entry.id).run();
+
+  return Response.json({ data: { discarded: true, entry_id: entry.id } });
 }
 
 // Upsert helper — keeps the 2 most-recent projects per user, no duplicates.

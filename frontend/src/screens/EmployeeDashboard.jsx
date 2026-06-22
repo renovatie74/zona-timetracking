@@ -277,6 +277,30 @@ function SummaryView({ summary, onDone }) {
   );
 }
 
+// ── Discard confirmation modal ────────────────────────────────────────────────
+function DiscardConfirmModal({ mode, onCancel, onDiscard, busy }) {
+  const isSwitch = mode === 'switch';
+  return (
+    <div className="em-overlay" onClick={onCancel}>
+      <div className="em-modal" onClick={e => e.stopPropagation()}>
+        <p className="em-modal-text">
+          {isSwitch
+            ? 'This session is shorter than 10 minutes and will not be recorded. Do you want to discard it and switch project?'
+            : 'This session is shorter than 10 minutes and will not be recorded. Do you want to discard it?'}
+        </p>
+        <div className="em-modal-actions">
+          <button className="em-modal-discard" onClick={onDiscard} disabled={busy}>
+            {isSwitch ? 'Discard and Switch' : 'Discard Session'}
+          </button>
+          <button className="em-modal-cancel" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function EmployeeDashboard() {
   const { user, logout } = useAuth();
@@ -293,6 +317,8 @@ export default function EmployeeDashboard() {
   const [error,        setError]        = useState('');
   // 'checkin' | 'switch' — distinguishes what happens after project is picked
   const [pickMode,     setPickMode]     = useState('checkin');
+  // null | 'checkout' | 'switch' — set when checkout returns short_session: true
+  const [discardMode,  setDiscardMode]  = useState(null);
 
   const today = todayISO();
 
@@ -360,7 +386,11 @@ export default function EmployeeDashboard() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? 'Check-out failed');
+        if (data.short_session) {
+          setDiscardMode(thenSwitch ? 'switch' : 'checkout');
+        } else {
+          setError(data.error ?? 'Check-out failed');
+        }
         setBusy(false);
         return;
       }
@@ -380,6 +410,34 @@ export default function EmployeeDashboard() {
 
   const handleSwitch    = () => handleCheckout({ thenSwitch: true });
   const handleSummaryDone = () => setSummary(null);
+
+  // ── Discard short session ────────────────────────────────────────────────────
+  const handleDiscard = async () => {
+    const mode = discardMode;
+    setDiscardMode(null);
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(api('/time-entries/discard'), {
+        method: 'POST', credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? 'Could not discard session');
+        setBusy(false);
+        return;
+      }
+      setSession(null);
+      await loadAll();
+      if (mode === 'switch') {
+        setPickMode('checkin');
+        setPicking(true);
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+    setBusy(false);
+  };
 
   const handleSignOut = async () => {
     await logout();
@@ -430,6 +488,15 @@ export default function EmployeeDashboard() {
           allProjects={allProjects}
           onSelect={handleProjectSelect}
           onCancel={() => setPicking(false)}
+          busy={busy}
+        />
+      )}
+
+      {discardMode && (
+        <DiscardConfirmModal
+          mode={discardMode}
+          onCancel={() => setDiscardMode(null)}
+          onDiscard={handleDiscard}
           busy={busy}
         />
       )}

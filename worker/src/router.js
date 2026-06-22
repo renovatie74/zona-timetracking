@@ -72,6 +72,7 @@ router.get( '/api/time-entries/mine',      timeEntryRoutes.mine);
 router.get( '/api/time-entries/active',    timeEntryRoutes.active);
 router.post('/api/time-entries/checkin',   timeEntryRoutes.checkin);
 router.post('/api/time-entries/checkout',  timeEntryRoutes.checkout);
+router.post('/api/time-entries/discard',   timeEntryRoutes.discard);
 
 // ── Note routes (Sprint 4) ────────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);

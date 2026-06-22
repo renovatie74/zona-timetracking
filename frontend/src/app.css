@@ -950,6 +950,49 @@ tbody tr:hover { background: #FDFCFA; }
   align-items: flex-end;
   z-index: 100;
 }
+.em-modal {
+  background: var(--color-white);
+  border-radius: 16px;
+  padding: 28px 24px 24px;
+  margin: auto 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 375px;
+}
+.em-modal-text {
+  font-size: 1rem;
+  color: var(--color-charcoal);
+  line-height: 1.55;
+}
+.em-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.em-modal-discard {
+  background: #DC2626;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.em-modal-discard:disabled { opacity: 0.6; }
+.em-modal-cancel {
+  background: none;
+  border: 1px solid var(--color-grey-200);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 1rem;
+  color: var(--color-charcoal);
+  cursor: pointer;
+}
+.em-modal-cancel:hover { background: var(--color-grey-50); }
+
 .em-picker {
   background: var(--color-white);
   border-radius: 20px 20px 0 0;
