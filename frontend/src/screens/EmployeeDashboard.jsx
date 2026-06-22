@@ -42,10 +42,11 @@ function useElapsed(startIso) {
 }
 
 // ── Project picker ────────────────────────────────────────────────────────────
-// Shows Recent (rank 1-2) and All Available as permanent groups.
-// Typing in the search field filters both groups — it never replaces the list.
+// Shows Recent (rank 1-2) and All Projects immediately — no keyboard on open.
+// Search is hidden by default; tap the 🔍 icon to expand it.
 function ProjectPicker({ allProjects, onSelect, onCancel, busy }) {
-  const [search, setSearch] = useState('');
+  const [search,     setSearch]     = useState('');
+  const [showSearch, setShowSearch] = useState(false);
 
   const q = search.trim().toLowerCase();
 
@@ -57,24 +58,47 @@ function ProjectPicker({ allProjects, onSelect, onCancel, busy }) {
 
   const totalFiltered = recent.length + rest.length;
 
+  const handleToggleSearch = () => {
+    if (showSearch) {
+      setShowSearch(false);
+      setSearch('');
+    } else {
+      setShowSearch(true);
+    }
+  };
+
   return (
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-picker" onClick={e => e.stopPropagation()}>
         <div className="em-picker-header">
           <h2 className="em-picker-title">Select Project</h2>
-          <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
+          <div className="em-picker-header-actions">
+            <button
+              className={`em-search-toggle${showSearch ? ' em-search-toggle-active' : ''}`}
+              onClick={handleToggleSearch}
+              aria-label={showSearch ? 'Hide search' : 'Search projects'}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <circle cx="7.5" cy="7.5" r="5" stroke="currentColor" strokeWidth="1.75"/>
+                <path d="M11.5 11.5L15.5 15.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
+          </div>
         </div>
 
-        <div className="em-search-wrap">
-          <input
-            className="em-search"
-            type="search"
-            placeholder="Search projects…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            autoFocus
-          />
-        </div>
+        {showSearch && (
+          <div className="em-search-wrap">
+            <input
+              className="em-search"
+              type="search"
+              placeholder="Search projects…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+        )}
 
         <div className="em-project-list">
           {totalFiltered === 0 && (

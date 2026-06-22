@@ -1006,12 +1006,17 @@ tbody tr:hover { background: #FDFCFA; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 20px 0;
+  padding: 20px 20px 12px;
 }
 .em-picker-title {
   font-size: 1.125rem;
   font-weight: 700;
   color: var(--color-charcoal);
+}
+.em-picker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .em-btn-close {
   background: none;
@@ -1021,8 +1026,22 @@ tbody tr:hover { background: #FDFCFA; }
   color: var(--color-grey-600);
   padding: 4px 8px;
 }
+.em-search-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-grey-600);
+  padding: 6px 8px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.em-search-toggle:hover { background: var(--color-grey-50); color: var(--color-charcoal); }
+.em-search-toggle-active { color: var(--color-gold); background: var(--color-grey-50); }
 .em-search-wrap {
-  padding: 12px 20px;
+  padding: 0 20px 12px;
 }
 .em-search {
   width: 100%;
