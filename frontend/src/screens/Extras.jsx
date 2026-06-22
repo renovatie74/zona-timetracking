@@ -10,12 +10,10 @@ function fetchJSON(path, opts = {}) {
   });
 }
 
-const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost', mileage: 'Mileage' };
+const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost' };
 
 function TypeBadge({ type }) {
-  const cls = type === 'extra_work' ? 'ex-badge-work'
-            : type === 'mileage'    ? 'ex-badge-mileage'
-            :                        'ex-badge-cost';
+  const cls = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
   return <span className={`ex-type-badge ${cls}`}>{TYPE_LABELS[type] ?? type}</span>;
 }
 
@@ -34,9 +32,6 @@ function fmtDate(iso) {
 }
 
 function ExtraValue({ ex }) {
-  if (ex.type === 'mileage') {
-    return <div className="ex-card-description">{ex.mileage_km} km</div>;
-  }
   return <div className="ex-card-description">{ex.description}</div>;
 }
 
@@ -93,30 +88,18 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
     initial ? (projects.find(p => p.id === initial.project_id) ?? null) : null,
   );
   const [description, setDescription] = useState(initial?.description ?? '');
-  const [mileageKm,   setMileageKm]   = useState(
-    initial?.mileage_km != null ? String(initial.mileage_km) : '',
-  );
   const [picking,   setPicking]   = useState(false);
   const [formError, setFormError] = useState('');
 
   function handleSave() {
     if (!selectedProject) { setFormError('Please select a project.'); return; }
-    if (type === 'mileage') {
-      const km = Number(mileageKm);
-      if (!mileageKm || !isFinite(km) || km <= 0) {
-        setFormError('Mileage (km) must be a positive number.');
-        return;
-      }
-    } else {
-      if (!description.trim()) { setFormError('Description is required.'); return; }
-    }
+    if (!description.trim()) { setFormError('Description is required.'); return; }
     setFormError('');
     onSave({
       id:          initial?.id,
       project_id:  selectedProject.id,
       type,
-      description: type !== 'mileage' ? description.trim() : undefined,
-      mileage_km:  type === 'mileage' ? Number(mileageKm) : undefined,
+      description: description.trim(),
     });
   }
 
@@ -145,7 +128,6 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
             >
               <option value="own_cost">Own Cost</option>
               <option value="extra_work">Extra Work</option>
-              <option value="mileage">Mileage</option>
             </select>
           </div>
 
@@ -175,33 +157,17 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
             </button>
           </div>
 
-          {/* Description (own_cost / extra_work) or Mileage (km) */}
-          {type === 'mileage' ? (
-            <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-              <label className="mt-form-label">Mileage (km) *</label>
-              <input
-                className="ex-form-select"
-                type="number"
-                min="0.01"
-                step="0.01"
-                placeholder="e.g. 42 or 18.5"
-                value={mileageKm}
-                onChange={e => setMileageKm(e.target.value)}
-                style={{ width: '100%' }}
-              />
-            </div>
-          ) : (
-            <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-              <label className="mt-form-label">Description *</label>
-              <textarea
-                className="ex-description-input"
-                placeholder="Describe the extra work or cost…"
-                value={description}
-                rows={4}
-                onChange={e => setDescription(e.target.value)}
-              />
-            </div>
-          )}
+          {/* Description */}
+          <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+            <label className="mt-form-label">Description *</label>
+            <textarea
+              className="ex-description-input"
+              placeholder="Describe the extra work or cost…"
+              value={description}
+              rows={4}
+              onChange={e => setDescription(e.target.value)}
+            />
+          </div>
 
           <button
             className="mt-save-btn"
@@ -270,12 +236,10 @@ export default function Extras() {
     loadExtras(sf);
   }
 
-  async function handleSave({ id, project_id, type, description, mileage_km }) {
+  async function handleSave({ id, project_id, type, description }) {
     setBusy(true);
     try {
-      const body = { project_id, type };
-      if (type === 'mileage') body.mileage_km = mileage_km;
-      else body.description = description;
+      const body = { project_id, type, description };
 
       if (id) {
         await fetchJSON(`/api/extras/mine/${id}`, {

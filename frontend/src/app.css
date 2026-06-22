@@ -1572,11 +1572,6 @@ tbody tr:hover { background: #FDFCFA; }
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
 }
-.ex-badge-mileage {
-  background: rgba(20, 184, 166, 0.12);
-  color: #0f766e;
-}
-
 /* ── Status badges ───────────────────────────────────────────────────────────── */
 .ex-status-badge {
   display: inline-block;
@@ -1872,3 +1867,77 @@ tbody tr:hover { background: #FDFCFA; }
   color: #b91c1c !important;
 }
 .btn-ghost-danger:hover { background: rgba(220,38,38,0.06) !important; }
+
+/* ── MyTime: weekly mileage row (Sprint 4.2) ─────────────────────────────────── */
+.mt-mileage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  margin: 0 0 4px;
+  background: var(--color-white);
+  border-radius: 10px;
+  border: 1px solid var(--color-grey-200);
+}
+.mt-mileage-label {
+  font-size: 0.875rem;
+  color: var(--color-grey-600);
+}
+.mt-mileage-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mt-mileage-value strong {
+  font-size: 0.9375rem;
+  color: var(--color-charcoal);
+}
+.mt-mileage-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-grey-500);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0;
+}
+.mt-mileage-edit-btn:hover { background: var(--color-grey-50); color: var(--color-charcoal); }
+.mt-mileage-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mt-mileage-input {
+  width: 90px;
+  padding: 4px 8px;
+  border: 1.5px solid var(--color-gold);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: var(--color-white);
+  color: var(--color-charcoal);
+  outline: none;
+}
+.mt-mileage-save-btn {
+  padding: 4px 12px;
+  background: var(--color-gold);
+  color: var(--color-white);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mt-mileage-save-btn:disabled { opacity: 0.6; cursor: default; }
+.mt-mileage-cancel-btn {
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--color-grey-500);
+  border: 1px solid var(--color-grey-200);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}

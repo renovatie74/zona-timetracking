@@ -15,6 +15,7 @@ import Clients         from './screens/admin/Clients.jsx';
 import TimeEntries     from './screens/admin/TimeEntries.jsx';
 import Extras          from './screens/Extras.jsx';
 import AdminExtras     from './screens/admin/Extras.jsx';
+import AdminMileage    from './screens/admin/Mileage.jsx';
 
 // Smart home redirect: authenticated → /dashboard, unauthenticated → /login.
 // Waits for auth check to finish so it never shows a blank screen.
@@ -74,8 +75,9 @@ export default function App() {
           <Route path="/my-time" element={<EmployeeRoute><MyTime /></EmployeeRoute>} />
           <Route path="/extras"  element={<EmployeeRoute><Extras /></EmployeeRoute>} />
 
-          {/* Admin Extras (Sprint 4) */}
-          <Route path="/admin/extras" element={<AdminOrManagerRoute><AdminExtras /></AdminOrManagerRoute>} />
+          {/* Admin Extras + Mileage (Sprint 4) */}
+          <Route path="/admin/extras"   element={<AdminOrManagerRoute><AdminExtras  /></AdminOrManagerRoute>} />
+          <Route path="/admin/mileage"  element={<AdminOrManagerRoute><AdminMileage /></AdminOrManagerRoute>} />
 
           {/* Unknown paths fall back to home redirect */}
           <Route path="*" element={<HomeRoute />} />

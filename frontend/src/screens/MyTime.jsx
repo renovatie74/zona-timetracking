@@ -331,9 +331,15 @@ export default function MyTime() {
 
   const [entries,   setEntries]   = useState([]);
   const [projects,  setProjects]  = useState([]);
+  const [mileage,   setMileage]   = useState(null);   // {mileage_km} or null
   const [loading,   setLoading]   = useState(true);
   const [busy,      setBusy]      = useState(false);
   const [error,     setError]     = useState('');
+
+  // Mileage edit state
+  const [editingMileage, setEditingMileage] = useState(false);
+  const [mileageInput,   setMileageInput]   = useState('');
+  const [mileageBusy,    setMileageBusy]    = useState(false);
 
   // null | { date: 'YYYY-MM-DD', entry: null|{...} }
   const [formTarget,    setFormTarget]    = useState(null);
@@ -341,14 +347,17 @@ export default function MyTime() {
 
   const loadWeek = useCallback(async () => {
     setLoading(true);
+    setEditingMileage(false);
     try {
-      const [myRes, projRes] = await Promise.all([
-        fetch(api(`/my-time?week=${weekStart}`), { credentials: 'include' }),
-        fetch(api('/projects/mine'),              { credentials: 'include' }),
+      const [myRes, projRes, mlRes] = await Promise.all([
+        fetch(api(`/my-time?week=${weekStart}`),              { credentials: 'include' }),
+        fetch(api('/projects/mine'),                           { credentials: 'include' }),
+        fetch(api(`/my-mileage?week_start=${weekStart}`),     { credentials: 'include' }),
       ]);
-      const [myData, projData] = await Promise.all([myRes.json(), projRes.json()]);
+      const [myData, projData, mlData] = await Promise.all([myRes.json(), projRes.json(), mlRes.json()]);
       setEntries(myData.data ?? []);
       setProjects(projData.data ?? []);
+      setMileage(mlData.data ?? null);
     } catch {
       // leave previous state
     } finally {
@@ -399,6 +408,30 @@ export default function MyTime() {
       setError('Network error. Please try again.');
     }
     setBusy(false);
+  };
+
+  const handleSaveMileage = async () => {
+    const km = Number(mileageInput);
+    if (!mileageInput || !isFinite(km) || km <= 0) return;
+    setMileageBusy(true);
+    try {
+      const res = await fetch(api('/my-mileage'), {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_start: weekStart, mileage_km: km }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMileage(data.data);
+        setEditingMileage(false);
+      } else {
+        setError(data.error ?? 'Could not save mileage');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    }
+    setMileageBusy(false);
   };
 
   const handleSignOut = async () => {
@@ -468,6 +501,46 @@ export default function MyTime() {
             <strong>{fmtDuration(weekTotal)}</strong>
           </div>
         )}
+
+        {/* Weekly mileage */}
+        <div className="mt-mileage-row">
+          <span className="mt-mileage-label">Mileage</span>
+          {editingMileage ? (
+            <div className="mt-mileage-edit">
+              <input
+                className="mt-mileage-input"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="km"
+                value={mileageInput}
+                onChange={e => setMileageInput(e.target.value)}
+                autoFocus
+              />
+              <button className="mt-mileage-save-btn" onClick={handleSaveMileage} disabled={mileageBusy}>
+                {mileageBusy ? '…' : 'Save'}
+              </button>
+              <button className="mt-mileage-cancel-btn" onClick={() => setEditingMileage(false)} disabled={mileageBusy}>
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="mt-mileage-value">
+              <strong>{mileage ? `${mileage.mileage_km} km` : '—'}</strong>
+              {isCurrentWk && (
+                <button
+                  className="mt-mileage-edit-btn"
+                  aria-label="Edit mileage"
+                  onClick={() => { setMileageInput(mileage ? String(mileage.mileage_km) : ''); setEditingMileage(true); }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <path d="M10.5 2L13 4.5L5 12.5H2.5V10L10.5 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Day list — scrollable */}
         <div className="mt-day-list">

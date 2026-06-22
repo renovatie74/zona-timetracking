@@ -3,7 +3,7 @@ import { getManagerScope }          from '../lib/scope.js';
 
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
-const VALID_TYPES    = ['extra_work', 'own_cost', 'mileage'];
+const VALID_TYPES    = ['extra_work', 'own_cost'];
 const VALID_STATUSES = ['open', 'processed'];
 
 const SELECT_COLS = `
@@ -11,29 +11,16 @@ const SELECT_COLS = `
   (u.first_name || ' ' || u.last_name) AS employee_name,
   u.employee_number AS employee_code,
   p.name AS project_name, p.project_code,
-  e.type, e.description, e.mileage_km, e.status,
+  e.type, e.description, e.status,
   e.processed_at,
   (pb.first_name || ' ' || pb.last_name) AS processed_by_name,
   e.created_at, e.updated_at
 `;
 
-function validatePayload(type, description, mileage_km) {
+function validatePayload(type, description) {
   if (!VALID_TYPES.includes(type)) return 'Invalid type';
-  if (type === 'mileage') {
-    if (mileage_km == null) return 'mileage_km is required for Mileage type';
-    const km = Number(mileage_km);
-    if (!isFinite(km) || km <= 0) return 'mileage_km must be a positive number';
-  } else {
-    if (!description?.trim()) return 'description is required';
-  }
+  if (!description?.trim()) return 'description is required';
   return null;
-}
-
-function resolveFields(type, description, mileage_km) {
-  if (type === 'mileage') {
-    return { finalDescription: null, finalKm: Number(mileage_km) };
-  }
-  return { finalDescription: description.trim(), finalKm: null };
 }
 
 // ── GET /api/extras/mine ──────────────────────────────────────────────────────
@@ -55,7 +42,7 @@ export async function listMine(request, env) {
   const where = conditions.join(' AND ');
   const { results } = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.mileage_km, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  ${where}
@@ -70,12 +57,12 @@ export async function createMine(request, env) {
   const guard = await requireAuth(request, env);
   if (guard) return guard;
 
-  const { project_id, type, description, mileage_km } = await request.json();
+  const { project_id, type, description } = await request.json();
 
   if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
   if (!type)       return Response.json({ error: 'type is required' }, { status: 400 });
 
-  const validErr = validatePayload(type, description, mileage_km);
+  const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
   const proj = await env.DB.prepare(
@@ -86,16 +73,15 @@ export async function createMine(request, env) {
   ).bind(Number(project_id), request.user.id).first();
   if (!proj) return Response.json({ error: 'Project not found or not assigned to you' }, { status: 400 });
 
-  const { finalDescription, finalKm } = resolveFields(type, description, mileage_km);
   const now = new Date().toISOString();
   const result = await env.DB.prepare(
-    `INSERT INTO Extras (user_id, project_id, type, description, mileage_km, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
-  ).bind(request.user.id, Number(project_id), type, finalDescription, finalKm, request.user.id, now, now).run();
+    `INSERT INTO Extras (user_id, project_id, type, description, status, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'open', ?, ?, ?)`,
+  ).bind(request.user.id, Number(project_id), type, description.trim(), request.user.id, now, now).run();
 
   const entry = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.mileage_km, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  e.id = ?`,
@@ -118,25 +104,23 @@ export async function updateMine(request, env) {
     return Response.json({ error: 'Processed extras cannot be edited' }, { status: 403 });
   }
 
-  const body       = await request.json();
-  const type       = body.type        !== undefined ? body.type        : old.type;
+  const body        = await request.json();
+  const type        = body.type        !== undefined ? body.type        : old.type;
   const description = body.description !== undefined ? body.description : old.description;
-  const mileage_km = body.mileage_km  !== undefined ? body.mileage_km  : old.mileage_km;
-  const project_id = body.project_id  !== undefined ? body.project_id  : old.project_id;
+  const project_id  = body.project_id  !== undefined ? body.project_id  : old.project_id;
 
-  const validErr = validatePayload(type, description, mileage_km);
+  const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
-  const { finalDescription, finalKm } = resolveFields(type, description, mileage_km);
   const now = new Date().toISOString();
   await env.DB.prepare(
-    `UPDATE Extras SET type = ?, description = ?, mileage_km = ?, project_id = ?, updated_by = ?, updated_at = ?
+    `UPDATE Extras SET type = ?, description = ?, project_id = ?, updated_by = ?, updated_at = ?
      WHERE id = ?`,
-  ).bind(type, finalDescription, finalKm, Number(project_id), request.user.id, now, id).run();
+  ).bind(type, description.trim(), Number(project_id), request.user.id, now, id).run();
 
   const entry = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.mileage_km, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  e.id = ?`,
@@ -221,21 +205,20 @@ export async function create(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
   if (guard) return guard;
 
-  const { user_id, project_id, type, description, mileage_km } = await request.json();
+  const { user_id, project_id, type, description } = await request.json();
 
   if (!user_id)    return Response.json({ error: 'user_id is required' },    { status: 400 });
   if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
   if (!type)       return Response.json({ error: 'type is required' },        { status: 400 });
 
-  const validErr = validatePayload(type, description, mileage_km);
+  const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
-  const { finalDescription, finalKm } = resolveFields(type, description, mileage_km);
   const now = new Date().toISOString();
   const result = await env.DB.prepare(
-    `INSERT INTO Extras (user_id, project_id, type, description, mileage_km, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
-  ).bind(Number(user_id), Number(project_id), type, finalDescription, finalKm, request.user.id, now, now).run();
+    `INSERT INTO Extras (user_id, project_id, type, description, status, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'open', ?, ?, ?)`,
+  ).bind(Number(user_id), Number(project_id), type, description.trim(), request.user.id, now, now).run();
 
   const entry = await env.DB.prepare(
     `SELECT ${SELECT_COLS}
@@ -260,23 +243,21 @@ export async function update(request, env) {
   ).bind(id).first();
   if (!old) return Response.json({ error: 'Extra not found' }, { status: 404 });
 
-  const body       = await request.json();
-  const type       = body.type        !== undefined ? body.type        : old.type;
+  const body        = await request.json();
+  const type        = body.type        !== undefined ? body.type        : old.type;
   const description = body.description !== undefined ? body.description : old.description;
-  const mileage_km = body.mileage_km  !== undefined ? body.mileage_km  : old.mileage_km;
-  const project_id = body.project_id  !== undefined ? body.project_id  : old.project_id;
-  const user_id    = body.user_id     !== undefined ? body.user_id     : old.user_id;
+  const project_id  = body.project_id  !== undefined ? body.project_id  : old.project_id;
+  const user_id     = body.user_id     !== undefined ? body.user_id     : old.user_id;
 
-  const validErr = validatePayload(type, description, mileage_km);
+  const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
-  const { finalDescription, finalKm } = resolveFields(type, description, mileage_km);
   const now = new Date().toISOString();
   await env.DB.prepare(
     `UPDATE Extras
-     SET  type = ?, description = ?, mileage_km = ?, project_id = ?, user_id = ?, updated_by = ?, updated_at = ?
+     SET  type = ?, description = ?, project_id = ?, user_id = ?, updated_by = ?, updated_at = ?
      WHERE id = ?`,
-  ).bind(type, finalDescription, finalKm, Number(project_id), Number(user_id), request.user.id, now, id).run();
+  ).bind(type, description.trim(), Number(project_id), Number(user_id), request.user.id, now, id).run();
 
   const entry = await env.DB.prepare(
     `SELECT ${SELECT_COLS}

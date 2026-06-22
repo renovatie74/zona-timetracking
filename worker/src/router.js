@@ -7,6 +7,7 @@ import * as clientRoutes      from './routes/clients.js';
 import * as timeEntryRoutes   from './routes/time_entries.js';
 import * as myTimeRoutes      from './routes/my_time.js';
 import * as extrasRoutes      from './routes/extras.js';
+import * as mileageRoutes     from './routes/mileage.js';
 
 export const router = Router();
 
@@ -95,6 +96,14 @@ router.post(  '/api/extras/:id/process',  extrasRoutes.process);
 router.post(  '/api/extras/:id/reopen',   extrasRoutes.reopen);
 router.put(   '/api/extras/:id',          extrasRoutes.update);
 router.delete('/api/extras/:id',          extrasRoutes.remove);
+
+// ── Weekly Mileage routes (Sprint 4.2) ───────────────────────────────────────
+// Employee self-service
+router.get('/api/my-mileage',                    mileageRoutes.listMyMileage);
+router.put('/api/my-mileage',                    mileageRoutes.upsertMyMileage);
+// Admin/manager
+router.get('/api/mileage',                       mileageRoutes.listMileage);
+router.put('/api/mileage/:user_id/:week_start',  mileageRoutes.upsertMileageAdmin);
 
 // ── Note routes (Sprint 4+) ───────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);

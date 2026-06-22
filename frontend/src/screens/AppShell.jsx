@@ -81,6 +81,16 @@ function IconExtras() {
   );
 }
 
+function IconMileage() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="11" r="7"/>
+      <path d="M10 11L13 8"/>
+      <path d="M6 4h8"/>
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -110,7 +120,8 @@ export default function AppShell({ children, title }) {
     { to: '/employees',     label: 'Employees',    Icon: IconEmployees,    always: false },
     { to: '/teams',         label: 'Teams',        Icon: IconTeams,        always: false },
     { to: '/time-entries',  label: 'Time Entries', Icon: IconTimeEntries,  always: false },
-    { to: '/admin/extras',  label: 'Extras',       Icon: IconExtras,       always: false },
+    { to: '/admin/extras',   label: 'Extras',       Icon: IconExtras,       always: false },
+    { to: '/admin/mileage',  label: 'Mileage',      Icon: IconMileage,      always: false },
     { to: '/profile',       label: 'Profile',      Icon: IconProfile,      always: true  },
   ].filter(l => l.always || isAdminOrMgr);
 
