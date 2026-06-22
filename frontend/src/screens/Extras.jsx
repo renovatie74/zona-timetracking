@@ -10,29 +10,39 @@ function fetchJSON(path, opts = {}) {
   });
 }
 
-const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost' };
+function currentWeekStart() {
+  const d      = new Date();
+  const utcDay = d.getUTCDay();
+  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+  return monday.toISOString().slice(0, 10);
+}
+
+function fmtWeekRange(weekStart) {
+  const s = new Date(weekStart + 'T00:00:00Z');
+  const e = new Date(weekStart + 'T00:00:00Z');
+  e.setUTCDate(e.getUTCDate() + 6);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[s.getUTCMonth()]} ${s.getUTCDate()} – ${months[e.getUTCMonth()]} ${e.getUTCDate()}`;
+}
+
+const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost', mileage: 'Mileage' };
 
 function TypeBadge({ type }) {
-  const cls = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
+  const cls = type === 'extra_work' ? 'ex-badge-work' : type === 'mileage' ? 'ex-badge-mileage' : 'ex-badge-cost';
   return <span className={`ex-type-badge ${cls}`}>{TYPE_LABELS[type] ?? type}</span>;
 }
 
 function StatusBadge({ status }) {
-  return (
-    <span className={`ex-status-badge ${status === 'open' ? 'ex-status-open' : 'ex-status-processed'}`}>
-      {status === 'open' ? 'Open' : 'Processed'}
-    </span>
-  );
+  const cls   = status === 'open' ? 'ex-status-open' : status === 'recorded' ? 'ex-status-recorded' : 'ex-status-processed';
+  const label = status === 'open' ? 'Open' : status === 'recorded' ? 'Recorded' : 'Processed';
+  return <span className={`ex-status-badge ${cls}`}>{label}</span>;
 }
 
 function fmtDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function ExtraValue({ ex }) {
-  return <div className="ex-card-description">{ex.description}</div>;
 }
 
 // ── Project picker ────────────────────────────────────────────────────────────
@@ -88,10 +98,23 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
     initial ? (projects.find(p => p.id === initial.project_id) ?? null) : null,
   );
   const [description, setDescription] = useState(initial?.description ?? '');
+  const [mileageKm,   setMileageKm]   = useState(
+    initial?.mileage_km != null ? String(initial.mileage_km) : '',
+  );
   const [picking,   setPicking]   = useState(false);
   const [formError, setFormError] = useState('');
 
   function handleSave() {
+    if (type === 'mileage') {
+      const km = Number(mileageKm);
+      if (mileageKm === '' || !isFinite(km) || km < 0) {
+        setFormError('Enter a valid km value (0 or more).');
+        return;
+      }
+      setFormError('');
+      onSave({ type: 'mileage', mileage_km: km });
+      return;
+    }
     if (!selectedProject) { setFormError('Please select a project.'); return; }
     if (!description.trim()) { setFormError('Description is required.'); return; }
     setFormError('');
@@ -118,56 +141,74 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
             </div>
           )}
 
-          {/* Type */}
-          <div className="mt-form-field" style={{ padding: '16px 20px 0' }}>
-            <label className="mt-form-label">Type *</label>
-            <select
-              className="ex-form-select"
-              value={type}
-              onChange={e => setType(e.target.value)}
-            >
-              <option value="own_cost">Own Cost</option>
-              <option value="extra_work">Extra Work</option>
-            </select>
-          </div>
+          {!isEdit && (
+            <div className="mt-form-field" style={{ padding: '16px 20px 0' }}>
+              <label className="mt-form-label">Type *</label>
+              <select
+                className="ex-form-select"
+                value={type}
+                onChange={e => { setType(e.target.value); setFormError(''); }}
+              >
+                <option value="own_cost">Own Cost</option>
+                <option value="extra_work">Extra Work</option>
+                <option value="mileage">Mileage</option>
+              </select>
+            </div>
+          )}
 
-          {/* Project */}
-          <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Project *</label>
-            <button
-              className="mt-project-select-btn"
-              type="button"
-              onClick={() => setPicking(true)}
-            >
-              {selectedProject ? (
-                <span style={{ fontWeight: 500, color: 'var(--color-charcoal)' }}>
-                  {selectedProject.name}
-                  {selectedProject.project_code && (
-                    <span style={{ marginLeft: 6, fontSize: '0.8125rem', color: 'var(--color-grey-600)' }}>
-                      {selectedProject.project_code}
+          {type === 'mileage' ? (
+            <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+              <label className="mt-form-label">Mileage (km)</label>
+              <input
+                className="mt-time-input"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 18.5"
+                value={mileageKm}
+                onChange={e => setMileageKm(e.target.value)}
+                autoFocus
+              />
+            </div>
+          ) : (
+            <>
+              <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+                <label className="mt-form-label">Project *</label>
+                <button
+                  className="mt-project-select-btn"
+                  type="button"
+                  onClick={() => setPicking(true)}
+                >
+                  {selectedProject ? (
+                    <span style={{ fontWeight: 500, color: 'var(--color-charcoal)' }}>
+                      {selectedProject.name}
+                      {selectedProject.project_code && (
+                        <span style={{ marginLeft: 6, fontSize: '0.8125rem', color: 'var(--color-grey-600)' }}>
+                          {selectedProject.project_code}
+                        </span>
+                      )}
                     </span>
+                  ) : (
+                    <span className="mt-project-placeholder">Select project…</span>
                   )}
-                </span>
-              ) : (
-                <span className="mt-project-placeholder">Select project…</span>
-              )}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M4 6l4 4 4-4" stroke="var(--color-grey-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </div>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M4 6l4 4 4-4" stroke="var(--color-grey-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
 
-          {/* Description */}
-          <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Description *</label>
-            <textarea
-              className="ex-description-input"
-              placeholder="Describe the extra work or cost…"
-              value={description}
-              rows={4}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
+              <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+                <label className="mt-form-label">Description *</label>
+                <textarea
+                  className="ex-description-input"
+                  placeholder="Describe the extra work or cost…"
+                  value={description}
+                  rows={4}
+                  onChange={e => setDescription(e.target.value)}
+                />
+              </div>
+            </>
+          )}
 
           <button
             className="mt-save-btn"
@@ -204,6 +245,8 @@ export default function Extras() {
   const [busy,         setBusy]         = useState(false);
   const [deleteId,     setDeleteId]     = useState(null);
 
+  const CUR_WEEK = currentWeekStart();
+
   useEffect(() => {
     loadProjects();
     loadExtras('');
@@ -236,22 +279,26 @@ export default function Extras() {
     loadExtras(sf);
   }
 
-  async function handleSave({ id, project_id, type, description }) {
+  async function handleSave({ id, project_id, type, description, mileage_km }) {
     setBusy(true);
     try {
-      const body = { project_id, type, description };
-
-      if (id) {
+      if (type === 'mileage') {
+        await fetchJSON('/api/extras/mine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'mileage', mileage_km }),
+        });
+      } else if (id) {
         await fetchJSON(`/api/extras/mine/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ project_id, type, description }),
         });
       } else {
         await fetchJSON('/api/extras/mine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ project_id, type, description }),
         });
       }
       setForm(null);
@@ -307,39 +354,60 @@ export default function Extras() {
           ) : extras.length === 0 ? (
             <div className="ex-empty">No extras yet. Tap + Add to create one.</div>
           ) : (
-            extras.map(ex => (
-              <div key={ex.id} className="ex-card">
-                <div className="ex-card-top">
-                  <TypeBadge type={ex.type} />
-                  <StatusBadge status={ex.status} />
-                  <span className="ex-card-date">{fmtDate(ex.created_at)}</span>
-                </div>
-                <div className="ex-card-project">{ex.project_name}</div>
-                <ExtraValue ex={ex} />
-                {ex.status === 'open' && (
-                  <div className="ex-card-actions">
-                    <button
-                      className="mt-action-btn"
-                      onClick={() => setForm({ initial: ex })}
-                      aria-label="Edit extra"
-                    >
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-                        <path d="M10.5 2L13 4.5L5 12.5H2.5V10L10.5 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                    <button
-                      className="mt-action-btn mt-action-delete"
-                      onClick={() => setDeleteId(ex.id)}
-                      aria-label="Delete extra"
-                    >
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-                        <path d="M2 4h11M5 4V2.5h5V4M6 7v5M9 7v5M3.5 4l.8 8.5h7.4L12.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
+            extras.map(ex => {
+              const isMileage = ex.type === 'mileage';
+              const cardKey   = isMileage ? `wm-${ex.wm_id}` : ex.id;
+              const canEdit   = isMileage ? ex.status === 'open' : ex.status === 'open';
+              const canDelete = !isMileage && ex.status === 'open';
+
+              return (
+                <div key={cardKey} className="ex-card">
+                  <div className="ex-card-top">
+                    <TypeBadge type={ex.type} />
+                    <StatusBadge status={ex.status} />
+                    <span className="ex-card-date">
+                      {isMileage ? fmtWeekRange(ex.week_start) : fmtDate(ex.created_at)}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))
+
+                  {isMileage ? (
+                    <div className="ex-card-description">{ex.mileage_km} km</div>
+                  ) : (
+                    <>
+                      <div className="ex-card-project">{ex.project_name}</div>
+                      <div className="ex-card-description">{ex.description}</div>
+                    </>
+                  )}
+
+                  {(canEdit || canDelete) && (
+                    <div className="ex-card-actions">
+                      {canEdit && (
+                        <button
+                          className="mt-action-btn"
+                          onClick={() => setForm({ initial: ex })}
+                          aria-label="Edit extra"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                            <path d="M10.5 2L13 4.5L5 12.5H2.5V10L10.5 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          className="mt-action-btn mt-action-delete"
+                          onClick={() => setDeleteId(ex.id)}
+                          aria-label="Delete extra"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                            <path d="M2 4h11M5 4V2.5h5V4M6 7v5M9 7v5M3.5 4l.8 8.5h7.4L12.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>

@@ -1572,6 +1572,10 @@ tbody tr:hover { background: #FDFCFA; }
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
 }
+.ex-badge-mileage {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0369a1;
+}
 /* ── Status badges ───────────────────────────────────────────────────────────── */
 .ex-status-badge {
   display: inline-block;
@@ -1588,6 +1592,10 @@ tbody tr:hover { background: #FDFCFA; }
 .ex-status-processed {
   background: rgba(107, 114, 128, 0.12);
   color: #374151;
+}
+.ex-status-recorded {
+  background: rgba(14, 165, 233, 0.10);
+  color: #0369a1;
 }
 
 /* ── Employee Extras screen ──────────────────────────────────────────────────── */

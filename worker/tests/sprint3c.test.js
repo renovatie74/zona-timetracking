@@ -39,6 +39,7 @@ import m15 from '../migrations/0015_audit_trail.sql?raw';
 import m16 from '../migrations/0016_extras.sql?raw';
 import m17 from '../migrations/0017_extras_mileage.sql?raw';
 import m18 from '../migrations/0018_weekly_mileage.sql?raw';
+import m19 from '../migrations/0019_mileage_allow_zero.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql

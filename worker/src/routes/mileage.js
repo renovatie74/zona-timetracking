@@ -20,7 +20,7 @@ function isValidWeekStart(str) {
 function validateKm(mileage_km) {
   if (mileage_km == null) return 'mileage_km is required';
   const km = Number(mileage_km);
-  if (!isFinite(km) || km <= 0) return 'mileage_km must be a positive number';
+  if (!isFinite(km) || km < 0) return 'mileage_km must be a non-negative number';
   return null;
 }
 

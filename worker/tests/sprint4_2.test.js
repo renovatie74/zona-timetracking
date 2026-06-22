@@ -38,6 +38,7 @@ import m15 from '../migrations/0015_audit_trail.sql?raw';
 import m16 from '../migrations/0016_extras.sql?raw';
 import m17 from '../migrations/0017_extras_mileage.sql?raw';
 import m18 from '../migrations/0018_weekly_mileage.sql?raw';
+import m19 from '../migrations/0019_mileage_allow_zero.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql
@@ -125,7 +126,7 @@ const PREV_WEEK = prevWeekStart();
 beforeAll(async () => {
   const migrations = [
     m01, m02, m03, m04, m05, m06, m07, m08, m09,
-    m10, m11, m12, m13, m14, m15, m16, m17, m18,
+    m10, m11, m12, m13, m14, m15, m16, m17, m18, m19,
   ];
   for (const sql of migrations) await applyMigration(sql);
 
@@ -139,14 +140,15 @@ beforeAll(async () => {
 // ── Extras no longer accepts mileage type ─────────────────────────────────────
 describe('TC-4.2-X: Extras rejects mileage type', () => {
 
-  it('TC-4.2-X01: mileage type rejected by employee create', async () => {
+  it('TC-4.2-X01: employee mileage via extras routes to WeeklyMileage (Sprint 4.3)', async () => {
     const req = makeRequest('POST', '/api/extras/mine',
-      { project_id: projectId, type: 'mileage', mileage_km: 42 },
+      { type: 'mileage', mileage_km: 42 },
       worker.cookie);
     const res = await extrasRoutes.createMine(req, env);
-    expect(res.status).toBe(400);
+    // Sprint 4.3: mileage type is accepted and upserts WeeklyMileage
+    expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.error).toMatch(/invalid type/i);
+    expect(body.data.type).toBe('mileage');
   });
 
   it('TC-4.2-X02: mileage type rejected by admin create', async () => {
@@ -216,14 +218,14 @@ describe('TC-4.2-E: Employee weekly mileage', () => {
     expect(body.error).toMatch(/current week/i);
   });
 
-  it('TC-4.2-E04: mileage_km = 0 is rejected', async () => {
+  it('TC-4.2-E04: mileage_km = 0 is allowed (Sprint 4.3 migration 0019)', async () => {
     const req = makeRequest('PUT', '/api/my-mileage',
       { week_start: CUR_WEEK, mileage_km: 0 },
       worker.cookie);
     const res = await mileageRoutes.upsertMyMileage(req, env);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error).toMatch(/positive/i);
+    expect(body.data.mileage_km).toBe(0);
   });
 
   it('TC-4.2-E05: week_start must be a Monday', async () => {
@@ -245,7 +247,8 @@ describe('TC-4.2-E: Employee weekly mileage', () => {
     expect(Array.isArray(body.data)).toBe(true);
     const entry = body.data.find(r => r.week_start === CUR_WEEK);
     expect(entry).toBeDefined();
-    expect(entry.mileage_km).toBe(120);
+    // E04 upserted 0 (km=0 now valid); E06 sees the latest value
+    expect(entry.mileage_km).toBe(0);
   });
 
   it('TC-4.2-E07: employee can get mileage for a specific week', async () => {
@@ -254,7 +257,8 @@ describe('TC-4.2-E: Employee weekly mileage', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).not.toBeNull();
-    expect(body.data.mileage_km).toBe(120);
+    // E04 upserted 0; current value is 0
+    expect(body.data.mileage_km).toBe(0);
   });
 
   it('TC-4.2-E08: missing week returns null', async () => {

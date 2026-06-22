@@ -6,6 +6,21 @@ const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 const VALID_TYPES    = ['extra_work', 'own_cost'];
 const VALID_STATUSES = ['open', 'processed'];
 
+function currentWeekStart() {
+  const d      = new Date();
+  const utcDay = d.getUTCDay();
+  const diff   = utcDay === 0 ? -6 : 1 - utcDay;
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diff));
+  return monday.toISOString().slice(0, 10);
+}
+
+function validateKm(mileage_km) {
+  if (mileage_km == null) return 'mileage_km is required';
+  const km = Number(mileage_km);
+  if (!isFinite(km) || km < 0) return 'mileage_km must be a non-negative number';
+  return null;
+}
+
 const SELECT_COLS = `
   e.id, e.user_id, e.project_id,
   (u.first_name || ' ' || u.last_name) AS employee_name,
@@ -49,7 +64,33 @@ export async function listMine(request, env) {
      ORDER  BY e.created_at DESC`,
   ).bind(...params).all();
 
-  return Response.json({ data: results });
+  // Fetch WeeklyMileage and append as mileage cards
+  const { results: wmRows } = await env.DB.prepare(
+    `SELECT id AS wm_id, week_start, mileage_km, updated_at
+     FROM   WeeklyMileage
+     WHERE  user_id = ?
+     ORDER  BY week_start DESC`,
+  ).bind(request.user.id).all();
+
+  const curWeek = currentWeekStart();
+  const mileageCards = wmRows.map(wm => ({
+    id:           null,
+    wm_id:        wm.wm_id,
+    type:         'mileage',
+    mileage_km:   wm.mileage_km,
+    week_start:   wm.week_start,
+    status:       wm.week_start === curWeek ? 'open' : 'recorded',
+    created_at:   wm.updated_at,
+    project_id:   null,
+    project_name: null,
+    project_code: null,
+    description:  null,
+  }));
+
+  const combined = [...results, ...mileageCards]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  return Response.json({ data: combined });
 }
 
 // ── POST /api/extras/mine ─────────────────────────────────────────────────────
@@ -57,10 +98,52 @@ export async function createMine(request, env) {
   const guard = await requireAuth(request, env);
   if (guard) return guard;
 
-  const { project_id, type, description } = await request.json();
+  const { project_id, type, description, mileage_km } = await request.json();
 
+  if (!type) return Response.json({ error: 'type is required' }, { status: 400 });
+
+  // Mileage → write to WeeklyMileage for current week (upsert)
+  if (type === 'mileage') {
+    const kmErr = validateKm(mileage_km);
+    if (kmErr) return Response.json({ error: kmErr }, { status: 400 });
+
+    const km       = Number(mileage_km);
+    const weekStart = currentWeekStart();
+    const now       = new Date().toISOString();
+
+    await env.DB.prepare(
+      `INSERT INTO WeeklyMileage (user_id, week_start, mileage_km, created_by, updated_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, week_start) DO UPDATE
+         SET mileage_km = excluded.mileage_km,
+             updated_by = excluded.updated_by,
+             updated_at = excluded.updated_at`,
+    ).bind(request.user.id, weekStart, km, request.user.id, request.user.id, now, now).run();
+
+    const wm = await env.DB.prepare(
+      `SELECT id AS wm_id, week_start, mileage_km, updated_at
+       FROM   WeeklyMileage WHERE user_id = ? AND week_start = ?`,
+    ).bind(request.user.id, weekStart).first();
+
+    return Response.json({
+      data: {
+        id:           null,
+        wm_id:        wm.wm_id,
+        type:         'mileage',
+        mileage_km:   wm.mileage_km,
+        week_start:   wm.week_start,
+        status:       'open',
+        created_at:   wm.updated_at,
+        project_id:   null,
+        project_name: null,
+        project_code: null,
+        description:  null,
+      },
+    }, { status: 201 });
+  }
+
+  // Regular extra (own_cost or extra_work)
   if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
-  if (!type)       return Response.json({ error: 'type is required' }, { status: 400 });
 
   const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });

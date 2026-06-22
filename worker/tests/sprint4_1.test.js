@@ -39,6 +39,7 @@ import m15 from '../migrations/0015_audit_trail.sql?raw';
 import m16 from '../migrations/0016_extras.sql?raw';
 import m17 from '../migrations/0017_extras_mileage.sql?raw';
 import m18 from '../migrations/0018_weekly_mileage.sql?raw';
+import m19 from '../migrations/0019_mileage_allow_zero.sql?raw';
 
 async function applyMigration(sql) {
   const stmts = sql
@@ -109,7 +110,7 @@ let admin, worker, projectId;
 beforeAll(async () => {
   const migrations = [
     m01, m02, m03, m04, m05, m06, m07, m08, m09,
-    m10, m11, m12, m13, m14, m15, m16, m17, m18,
+    m10, m11, m12, m13, m14, m15, m16, m17, m18, m19,
   ];
   for (const sql of migrations) await applyMigration(sql);
 
@@ -147,14 +148,16 @@ describe('TC-4.1-D: Valid Extra types', () => {
 // ── Mileage type no longer accepted in Extras ─────────────────────────────────
 describe('TC-4.1-V: Mileage removed from Extras (Sprint 4.2)', () => {
 
-  it('TC-4.1-V01: mileage type returns 400 Invalid type for employee', async () => {
+  it('TC-4.1-V01: mileage type via extras routes to WeeklyMileage (Sprint 4.3)', async () => {
     const req = makeRequest('POST', '/api/extras/mine',
-      { project_id: projectId, type: 'mileage', mileage_km: 42 },
+      { type: 'mileage', mileage_km: 42 },
       worker.cookie);
     const res = await extrasRoutes.createMine(req, env);
-    expect(res.status).toBe(400);
+    // Sprint 4.3: mileage is accepted and upserts WeeklyMileage, not rejected
+    expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.error).toMatch(/invalid type/i);
+    expect(body.data.type).toBe('mileage');
+    expect(body.data.mileage_km).toBe(42);
   });
 
   it('TC-4.1-V02: mileage type returns 400 for admin create', async () => {
