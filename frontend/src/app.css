@@ -293,6 +293,7 @@ button {
 
 .sidebar-footer {
   padding: var(--space-4);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, var(--space-4)));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 0.8125rem;
   color: rgba(255, 255, 255, 0.38);
