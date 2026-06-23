@@ -460,7 +460,7 @@ export default function MyTime() {
   };
 
   const handleSignOut = async () => {
-    await logout();
+    try { await logout(); } catch { /* expired or offline */ }
     navigate('/login', { replace: true });
   };
 

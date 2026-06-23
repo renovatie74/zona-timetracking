@@ -456,7 +456,7 @@ export default function EmployeeDashboard() {
   };
 
   const handleSignOut = async () => {
-    await logout();
+    try { await logout(); } catch { /* expired or offline */ }
     navigate('/login', { replace: true });
   };
 

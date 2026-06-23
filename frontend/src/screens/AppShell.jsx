@@ -105,7 +105,11 @@ export default function AppShell({ children, title }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   async function handleLogout() {
-    await logout();
+    try {
+      await logout();
+    } catch {
+      // session already expired or network error — still clear local state
+    }
     navigate('/login', { replace: true });
   }
 

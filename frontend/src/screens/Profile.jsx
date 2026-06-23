@@ -53,7 +53,7 @@ export default function Profile() {
   }
 
   async function handleLogout() {
-    await logout();
+    try { await logout(); } catch { /* expired or offline */ }
     navigate('/login', { replace: true });
   }
 
