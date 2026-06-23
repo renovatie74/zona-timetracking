@@ -45,6 +45,9 @@
 
 html, body {
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
   background: var(--color-bg);
@@ -699,7 +702,8 @@ tbody tr:hover { background: #FDFCFA; }
 /* ── Sprint 3B — Employee Mobile Dashboard ────────────────────────────────── */
 
 .em-root {
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -952,7 +956,7 @@ tbody tr:hover { background: #FDFCFA; }
   background: rgba(0,0,0,0.45);
   display: flex;
   align-items: flex-end;
-  z-index: 100;
+  z-index: 200;
 }
 .em-modal {
   background: var(--color-white);
@@ -1071,7 +1075,7 @@ tbody tr:hover { background: #FDFCFA; }
 .em-project-list {
   overflow-y: auto;
   flex: 1;
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 .em-no-results {
   padding: 24px 20px;
