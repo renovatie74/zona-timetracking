@@ -17,23 +17,29 @@ import Extras          from './screens/Extras.jsx';
 import AdminExtras     from './screens/admin/Extras.jsx';
 import AdminMileage    from './screens/admin/Mileage.jsx';
 
-// Smart home redirect: authenticated → /dashboard, unauthenticated → /login.
-// Waits for auth check to finish so it never shows a blank screen.
+function LoadingScreen() {
+  return (
+    <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg)' }}>
+      <div className="em-spinner" />
+    </div>
+  );
+}
+
 function HomeRoute() {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
   return <Navigate to={user ? '/dashboard' : '/login'} replace />;
 }
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
   return user ? children : <Navigate to="/login" replace />;
 }
 
 function EmployeeRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'employee') return <Navigate to="/dashboard" replace />;
   return children;
@@ -41,7 +47,7 @@ function EmployeeRoute({ children }) {
 
 function AdminOrManagerRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (!['administrator', 'manager'].includes(user.role)) return <Navigate to="/dashboard" replace />;
   return children;
