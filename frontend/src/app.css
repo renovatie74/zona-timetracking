@@ -43,13 +43,8 @@
   --space-8: 2rem;
 }
 
-html {
+html, body {
   height: 100%;
-}
-
-body {
-  height: 100%;
-  overflow-x: hidden;
   font-family: var(--font-sans);
   font-size: var(--font-size-base);
   background: var(--color-bg);
@@ -233,6 +228,7 @@ button {
 
 .sidebar-logo {
   padding: var(--space-6) var(--space-4) var(--space-4);
+  padding-top: max(var(--space-6), env(safe-area-inset-top, var(--space-6)));
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
