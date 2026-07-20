@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
+import ToastContainer from '../components/Toast.jsx';
 
 function IconDashboard() {
   return (
@@ -63,7 +64,7 @@ function IconProfile() {
   );
 }
 
-function IconTimeEntries() {
+function IconAttendance() {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
       <circle cx="10" cy="10" r="8"/>
@@ -91,6 +92,16 @@ function IconMileage() {
   );
 }
 
+function IconConsole() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="16" height="14" rx="2"/>
+      <path d="M5 8l3 3-3 3"/>
+      <path d="M11 14h4"/>
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -103,6 +114,23 @@ export default function AppShell({ children, title }) {
   const { user, logout }   = useAuth();
   const navigate           = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [extrasBadge, setExtrasBadge] = useState(0);
+
+  const isAdminOrMgr = ['administrator', 'manager'].includes(user?.role);
+
+  useEffect(() => {
+    if (!isAdminOrMgr) return;
+    fetch('/api/extras/summary', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!json?.data) return;
+        const count = user?.role === 'manager'
+          ? (json.data.waiting_for_manager ?? 0)
+          : (json.data.open ?? 0);
+        setExtrasBadge(count);
+      })
+      .catch(() => {});
+  }, [isAdminOrMgr, user?.role]); // eslint-disable-line
 
   async function handleLogout() {
     try {
@@ -115,19 +143,20 @@ export default function AppShell({ children, title }) {
 
   function close() { setSidebarOpen(false); }
 
-  const isAdminOrMgr = ['administrator', 'manager'].includes(user?.role);
+  const isAdmin = user?.role === 'administrator';
 
   const navLinks = [
-    { to: '/dashboard',     label: 'Dashboard',    Icon: IconDashboard,    always: true  },
-    { to: '/clients',       label: 'Clients',      Icon: IconClients,      always: false },
-    { to: '/projects',      label: 'Projects',     Icon: IconProjects,     always: false },
-    { to: '/employees',     label: 'Employees',    Icon: IconEmployees,    always: false },
-    { to: '/teams',         label: 'Teams',        Icon: IconTeams,        always: false },
-    { to: '/time-entries',  label: 'Time Entries', Icon: IconTimeEntries,  always: false },
-    { to: '/admin/extras',   label: 'Extras',       Icon: IconExtras,       always: false },
-    { to: '/admin/mileage',  label: 'Mileage',      Icon: IconMileage,      always: false },
-    { to: '/profile',       label: 'Profile',      Icon: IconProfile,      always: true  },
-  ].filter(l => l.always || isAdminOrMgr);
+    { to: '/dashboard',      label: 'Dashboard',     Icon: IconDashboard,   show: true,         badge: 0            },
+    { to: '/clients',        label: 'Clients',       Icon: IconClients,     show: isAdminOrMgr, badge: 0            },
+    { to: '/projects',       label: 'Projects',      Icon: IconProjects,    show: isAdminOrMgr, badge: 0            },
+    { to: '/employees',      label: 'Employees',     Icon: IconEmployees,   show: isAdminOrMgr, badge: 0            },
+    { to: '/teams',          label: 'Teams',         Icon: IconTeams,       show: isAdminOrMgr, badge: 0            },
+    { to: '/attendance',      label: 'Attendance',    Icon: IconAttendance,  show: isAdminOrMgr, badge: 0            },
+    { to: '/admin/extras',   label: 'Extras',        Icon: IconExtras,      show: isAdminOrMgr, badge: extrasBadge  },
+    { to: '/admin/mileage',  label: 'Mileage',       Icon: IconMileage,     show: isAdminOrMgr, badge: 0            },
+    { to: '/admin-console',  label: 'Admin Console', Icon: IconConsole,     show: isAdmin,      badge: 0            },
+    { to: '/profile',        label: 'Profile',       Icon: IconProfile,     show: true,         badge: 0            },
+  ].filter(l => l.show);
 
   return (
     <div className="shell">
@@ -146,7 +175,7 @@ export default function AppShell({ children, title }) {
         </div>
 
         <div className="sidebar-nav">
-          {navLinks.map(({ to, label, Icon }) => (
+          {navLinks.map(({ to, label, Icon, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -155,6 +184,7 @@ export default function AppShell({ children, title }) {
             >
               <Icon />
               {label}
+              {badge > 0 && <span className="nav-badge">{badge}</span>}
             </NavLink>
           ))}
         </div>
@@ -184,6 +214,7 @@ export default function AppShell({ children, title }) {
 
         {children}
       </div>
+      <ToastContainer />
     </div>
   );
 }

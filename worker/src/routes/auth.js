@@ -1,9 +1,10 @@
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { signJwt, jwtPayload, setJwtCookie, clearJwtCookie } from '../lib/jwt.js';
-import { generateResetToken, resetExpiry } from '../lib/tokens.js';
+import { generateResetToken, resetExpiry, hashToken } from '../lib/tokens.js';
 import { sendPasswordReset } from '../lib/email.js';
 import { requireAuth } from '../middleware/auth.js';
 import { writeAudit } from '../lib/audit.js';
+import { writeLoginAudit } from '../lib/loginAudit.js';
 
 // Dummy hash used when no user found — ensures PBKDF2 always runs (timing attack prevention)
 const DUMMY_HASH = 'pbkdf2:sha256:100000:ZHVtbXlzYWx0c2FsdA==:ZHVtbXloYXNoaGFzaGhhc2g=';
@@ -23,10 +24,39 @@ export async function login(request, env) {
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.email = ?`,
   ).bind(email).first();
 
-  // Always verify — prevents timing attacks that reveal whether an email exists
+  // Always run PBKDF2 — prevents timing attacks that reveal whether an email exists
   const ok = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
 
-  if (!ok || !user || !user.is_active) {
+  // Classify result and failure reason before any early return
+  let result        = 'success';
+  let failureReason = null;
+
+  if (!user) {
+    result = 'failed'; failureReason = 'unknown_user';
+  } else if (!user.password_hash) {
+    result = 'failed'; failureReason = 'pending_activation';
+  } else if (!user.is_active) {
+    result = 'failed'; failureReason = 'deactivated';
+  } else if (!ok) {
+    result = 'failed'; failureReason = 'invalid_password';
+  }
+
+  // Write login audit — catches errors internally; safe to await
+  await writeLoginAudit(env.DB, {
+    attemptedEmail: email,
+    userId:        user?.id ?? null,
+    result,
+    failureReason,
+    cfConnectingIp: request.headers.get('CF-Connecting-IP') ?? null,
+    trueClientIp:   request.headers.get('True-Client-IP')   ?? null,
+    xForwardedFor:  request.headers.get('X-Forwarded-For')  ?? null,
+    remoteAddr:     null,
+    countryCode:    request.headers.get('CF-IPCountry')     ?? null,
+    userAgent:      request.headers.get('User-Agent')       ?? null,
+    path:           '/api/auth/login',
+  });
+
+  if (result === 'failed') {
     return Response.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
@@ -44,13 +74,26 @@ export async function login(request, env) {
 }
 
 export async function logout(request, env) {
-  const authResult = await requireAuth(request, env);
-  if (authResult) return authResult;
+  // Do NOT require auth — the session may already be expired.
+  // Always clear the cookie so the client is signed out cleanly.
+  // Try to read the JWT for the audit log, but never block logout on it.
+  let userId = null;
+  try {
+    const cookie = request.headers.get('Cookie') ?? '';
+    const match  = cookie.match(/(?:^|;\s*)jwt=([^;]+)/);
+    if (match) {
+      const { verifyJwt } = await import('../lib/jwt.js');
+      const payload = await verifyJwt(match[1], env.JWT_SECRET);
+      if (payload?.sub) userId = payload.sub;
+    }
+  } catch { /* ignore — expired or tampered token */ }
 
-  await writeAudit(env.DB, {
-    actorId: request.user.id, action: 'logout', entityType: 'user', entityId: request.user.id,
-    oldValues: null, newValues: null, ipAddress: clientIp(request),
-  });
+  if (userId) {
+    await writeAudit(env.DB, {
+      actorId: userId, action: 'logout', entityType: 'user', entityId: userId,
+      oldValues: null, newValues: null, ipAddress: clientIp(request),
+    });
+  }
 
   return clearJwtCookie(Response.json({ ok: true }));
 }
@@ -128,16 +171,40 @@ export async function updateProfile(request, env) {
 export async function activate(request, env) {
   const { token, password } = await request.json();
 
-  const user = await env.DB.prepare(
-    `SELECT u.id, u.first_name, u.last_name,
-            (u.first_name || ' ' || u.last_name) AS name,
-            u.invitation_token_expires_at, r.name AS role
-     FROM Users u JOIN Roles r ON r.id = u.role_id
-     WHERE u.invitation_token = ? AND u.is_active = 0`,
-  ).bind(token).first();
+  if (!token) {
+    return Response.json({ error: 'Invalid or expired activation link' }, { status: 400 });
+  }
 
-  if (!user || new Date(user.invitation_token_expires_at) < new Date()) {
-    return Response.json({ error: 'Invalid or expired invitation link' }, { status: 400 });
+  // Only the SHA-256 hash is stored — compute it before DB lookup
+  const tokenHash = await hashToken(token);
+
+  const user = await env.DB.prepare(
+    `SELECT u.id, u.first_name, u.invitation_token_expires_at
+     FROM Users u
+     WHERE u.invitation_token = ? AND u.is_active = 0 AND u.password_hash IS NULL`,
+  ).bind(tokenHash).first();
+
+  if (!user) {
+    await writeAudit(env.DB, {
+      actorId: null, action: 'activation_failed_invalid_token', entityType: 'user', entityId: null,
+      oldValues: null, newValues: null, ipAddress: clientIp(request),
+    });
+    return Response.json({ error: 'Invalid or expired activation link' }, { status: 400 });
+  }
+
+  if (new Date(user.invitation_token_expires_at) < new Date()) {
+    await writeAudit(env.DB, {
+      actorId: null, action: 'activation_failed_expired_token', entityType: 'user', entityId: user.id,
+      oldValues: null, newValues: null, ipAddress: clientIp(request),
+    });
+    return Response.json({
+      error: 'This activation link has expired. Please contact your administrator to resend the activation email.',
+      expired: true,
+    }, { status: 400 });
+  }
+
+  if (!password || password.length < 8) {
+    return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
   }
 
   const hash = await hashPassword(password);
@@ -145,21 +212,17 @@ export async function activate(request, env) {
 
   await env.DB.prepare(
     `UPDATE Users SET
-       password_hash = ?, is_active = 1, invitation_accepted_at = ?,
+       password_hash = ?, is_active = 1,
        invitation_token = NULL, invitation_token_expires_at = NULL, updated_at = ?
      WHERE id = ?`,
-  ).bind(hash, now, now, user.id).run();
+  ).bind(hash, now, user.id).run();
 
   await writeAudit(env.DB, {
-    actorId: user.id, action: 'activated', entityType: 'user', entityId: user.id,
+    actorId: user.id, action: 'account_activated', entityType: 'user', entityId: user.id,
     oldValues: null, newValues: { is_active: true }, ipAddress: clientIp(request),
   });
 
-  const jwtToken = await signJwt(jwtPayload(user.id, user.role), env.JWT_SECRET);
-  return setJwtCookie(
-    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name }),
-    jwtToken,
-  );
+  return Response.json({ ok: true });
 }
 
 export async function forgotPassword(request, env, ctx) {

@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth }                  from './auth.jsx';
+import { ToastProvider } from './hooks/useToast.jsx';
 import Login           from './screens/Login.jsx';
 import ForgotPassword  from './screens/ForgotPassword.jsx';
 import ResetPassword   from './screens/ResetPassword.jsx';
@@ -12,10 +14,16 @@ import Projects        from './screens/admin/Projects.jsx';
 import Employees       from './screens/admin/Employees.jsx';
 import Teams           from './screens/admin/Teams.jsx';
 import Clients         from './screens/admin/Clients.jsx';
-import TimeEntries     from './screens/admin/TimeEntries.jsx';
+import Attendance      from './screens/admin/Attendance.jsx';
 import Extras          from './screens/Extras.jsx';
 import AdminExtras     from './screens/admin/Extras.jsx';
 import AdminMileage    from './screens/admin/Mileage.jsx';
+import AdminConsole        from './screens/admin/AdminConsole.jsx';
+import EmployeeTimesheet   from './screens/admin/EmployeeTimesheet.jsx';
+import ProjectTimesheet    from './screens/admin/ProjectTimesheet.jsx';
+import MissingTimesheets   from './screens/admin/MissingTimesheets.jsx';
+import MyDay               from './screens/MyDay.jsx';
+import MyMileage           from './screens/MyMileage.jsx';
 
 function LoadingScreen() {
   return (
@@ -25,10 +33,26 @@ function LoadingScreen() {
   );
 }
 
+function SessionWatcher() {
+  const navigate  = useNavigate();
+  const { logout } = useAuth();
+  useEffect(() => {
+    function onExpired() {
+      logout().catch(() => {});
+      navigate('/login?expired=1', { replace: true });
+    }
+    window.addEventListener('session:expired', onExpired);
+    return () => window.removeEventListener('session:expired', onExpired);
+  }, [navigate, logout]);
+  return null;
+}
+
 function HomeRoute() {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  return <Navigate to={user ? '/dashboard' : '/login'} replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'employee') return <Navigate to="/my-day" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function ProtectedRoute({ children }) {
@@ -53,10 +77,20 @@ function AdminOrManagerRoute({ children }) {
   return children;
 }
 
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'administrator') return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <BrowserRouter>
+        <SessionWatcher />
         <Routes>
           {/* Root — auth-aware redirect; no blank screen */}
           <Route path="/" element={<HomeRoute />} />
@@ -68,27 +102,36 @@ export default function App() {
           <Route path="/activate"         element={<ActivateAccount />} />
           <Route path="/change-password"  element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
 
-          {/* App shell routes (Sprint 2) */}
+          {/* App shell routes (Sprint 2 / Sprint 8) */}
           <Route path="/dashboard"  element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/missing-timesheets" element={<AdminOrManagerRoute><MissingTimesheets /></AdminOrManagerRoute>} />
           <Route path="/profile"    element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/clients"    element={<AdminOrManagerRoute><Clients /></AdminOrManagerRoute>} />
           <Route path="/projects"   element={<AdminOrManagerRoute><Projects /></AdminOrManagerRoute>} />
           <Route path="/employees"  element={<AdminOrManagerRoute><Employees /></AdminOrManagerRoute>} />
+          <Route path="/employees/:id/timesheet" element={<AdminOrManagerRoute><EmployeeTimesheet /></AdminOrManagerRoute>} />
+          <Route path="/projects/:id/timesheet"  element={<AdminOrManagerRoute><ProjectTimesheet  /></AdminOrManagerRoute>} />
           <Route path="/teams"      element={<AdminOrManagerRoute><Teams /></AdminOrManagerRoute>} />
-          <Route path="/time-entries" element={<AdminOrManagerRoute><TimeEntries /></AdminOrManagerRoute>} />
+          <Route path="/attendance"   element={<AdminOrManagerRoute><Attendance  /></AdminOrManagerRoute>} />
 
-          {/* Employee self-service (Sprint 3C–4) */}
-          <Route path="/my-time" element={<EmployeeRoute><MyTime /></EmployeeRoute>} />
-          <Route path="/extras"  element={<EmployeeRoute><Extras /></EmployeeRoute>} />
+          {/* Employee self-service (Sprint 3C–4, 6, 12) */}
+          <Route path="/my-day"     element={<EmployeeRoute><MyDay     /></EmployeeRoute>} />
+          <Route path="/my-time"    element={<EmployeeRoute><MyTime    /></EmployeeRoute>} />
+          <Route path="/my-mileage" element={<EmployeeRoute><MyMileage /></EmployeeRoute>} />
+          <Route path="/extras"     element={<EmployeeRoute><Extras    /></EmployeeRoute>} />
 
           {/* Admin Extras + Mileage (Sprint 4) */}
           <Route path="/admin/extras"   element={<AdminOrManagerRoute><AdminExtras  /></AdminOrManagerRoute>} />
           <Route path="/admin/mileage"  element={<AdminOrManagerRoute><AdminMileage /></AdminOrManagerRoute>} />
 
+          {/* Admin Console (Sprint 5.5) */}
+          <Route path="/admin-console"  element={<AdminRoute><AdminConsole /></AdminRoute>} />
+
           {/* Unknown paths fall back to home redirect */}
           <Route path="*" element={<HomeRoute />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

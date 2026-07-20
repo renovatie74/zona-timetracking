@@ -1,19 +1,23 @@
 import { useState } from 'react';
-import { useNavigate, Link, Navigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function Login() {
   const { login, user, loading: authLoading } = useAuth();
   const navigate  = useNavigate();
+  const [params]  = useSearchParams();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
 
-  // Already authenticated — send straight to dashboard
-  if (!authLoading && user) return <Navigate to="/dashboard" replace />;
+  const activated = params.get('activated') === '1';
+  const expired   = params.get('expired')   === '1';
+
+  // Already authenticated — HomeRoute handles role-based redirect
+  if (!authLoading && user) return <Navigate to="/" replace />;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -21,7 +25,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard', { replace: true });
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err.message ?? 'Login failed. Please try again.');
     } finally {
@@ -38,6 +42,14 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
+          {activated && !error && (
+            <div className="success-banner">Account activated. You can now sign in.</div>
+          )}
+          {expired && !error && !activated && (
+            <div className="error-banner" style={{ background: 'rgba(180,83,9,0.06)', borderColor: 'rgba(180,83,9,0.25)', color: 'var(--color-amber-dark, #92660a)' }}>
+              Session expired. Please sign in again.
+            </div>
+          )}
           {error && <div className="error-banner">{error}</div>}
 
           <div className="form-group">

@@ -36,6 +36,7 @@ import migration12 from '../migrations/0012_employee_name_split.sql?raw';
 
 import * as authRoutes  from '../src/routes/auth.js';
 import { hashPassword } from '../src/lib/password.js';
+import { hashToken }    from '../src/lib/tokens.js';
 import { signJwt }      from '../src/lib/jwt.js';
 import { requireRole }  from '../src/middleware/auth.js';
 
@@ -177,43 +178,48 @@ describe('Auth — Sprint 1', () => {
     expect(body.error).toBe('Invalid email or password');
   });
 
-  // 4. Invitation activation — valid token
-  it('TC-04: activate account with valid invitation token sets password and auto-logs in', async () => {
-    const expires = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  // 4. Invitation activation — valid token (DB stores hash; URL carries raw token)
+  it('TC-04: activate account with valid invitation token sets password and redirects to login', async () => {
+    const rawToken = 'abc123def456abc123def456abc123def456abc123def456';
+    const tokenH   = await hashToken(rawToken);
+    const expires  = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const user = await seedUser({
       is_active:                   0,
       password_hash:               null,
-      invitation_token:            'abc123def456abc123def456abc123def456abc123def456',
+      invitation_token:            tokenH,
       invitation_token_expires_at: expires,
     });
 
     const req = makeRequest('POST', '/api/auth/activate-account', {
-      token:    'abc123def456abc123def456abc123def456abc123def456',
+      token:    rawToken,
       password: 'NewPass1234!',
     });
     const res = await authRoutes.activate(req, env);
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.id).toBe(user.id);
-    expect(res.headers.get('Set-Cookie')).toMatch(/^jwt=/);
+    expect(body.ok).toBe(true);
 
-    // User should now be active
-    const updated = await env.DB.prepare('SELECT is_active FROM Users WHERE id = ?').bind(user.id).first();
+    // User should now be active with password set
+    const updated = await env.DB.prepare('SELECT is_active, password_hash FROM Users WHERE id = ?').bind(user.id).first();
     expect(updated.is_active).toBe(1);
+    expect(updated.password_hash).toBeTruthy();
   });
 
-  // 5. Expired invitation token
-  it('TC-05: expired invitation token returns 400', async () => {
-    const expires = new Date(Date.now() - 1000).toISOString(); // 1 second ago
+  // 5. Expired invitation token (DB stores hash; URL carries raw token)
+  it('TC-05: expired invitation token returns 400 with expired message', async () => {
+    const rawToken = 'expiredtoken0000000000000000000000000000000000000';
+    const tokenH   = await hashToken(rawToken);
+    const expires  = new Date(Date.now() - 1000).toISOString(); // 1 second ago
     await seedUser({
       is_active:                   0,
-      invitation_token:            'expiredtoken0000000000000000000000000000000000000',
+      password_hash:               null,
+      invitation_token:            tokenH,
       invitation_token_expires_at: expires,
     });
 
     const req = makeRequest('POST', '/api/auth/activate-account', {
-      token:    'expiredtoken0000000000000000000000000000000000000',
+      token:    rawToken,
       password: 'NewPass1234!',
     });
     const res = await authRoutes.activate(req, env);
@@ -221,6 +227,7 @@ describe('Auth — Sprint 1', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/expired/i);
+    expect(body.expired).toBe(true);
   });
 
   // 6. Password reset — valid token

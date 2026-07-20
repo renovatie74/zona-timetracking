@@ -63,7 +63,7 @@ function ProjectPicker({ allProjects, onSelect, onCancel, busy }) {
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-picker" onClick={e => e.stopPropagation()}>
         <div className="em-picker-header">
-          <h2 className="em-picker-title">Select Project</h2>
+          <h2 className="em-picker-title">{busy ? 'Checking in…' : 'Select Project'}</h2>
           <div className="em-picker-header-actions">
             <button
               className={`em-search-toggle${showSearch ? ' em-search-toggle-active' : ''}`}
@@ -163,7 +163,7 @@ function TodayHistory({ entries }) {
 }
 
 // ── Idle view ─────────────────────────────────────────────────────────────────
-function IdleView({ user, todayEntries, onCheckin }) {
+function IdleView({ user, todayEntries, onCheckin, busy }) {
   const closed  = (todayEntries ?? []).filter(e => e.stop_time);
   const total   = closed.reduce((sum, e) => sum + (e.rounded_duration_minutes ?? e.duration_minutes ?? 0), 0);
   const last    = closed[0];  // most recent closed entry (DESC order)
@@ -205,7 +205,7 @@ function IdleView({ user, todayEntries, onCheckin }) {
         </div>
       )}
 
-      <button className="em-btn-checkin" onClick={onCheckin}>
+      <button className="em-btn-checkin" onClick={onCheckin} disabled={busy}>
         Check In
       </button>
     </div>
@@ -362,7 +362,7 @@ export default function EmployeeDashboard() {
 
   // ── Check in ────────────────────────────────────────────────────────────────
   const handleProjectSelect = async (project) => {
-    setPicking(false);
+    // Keep picker open during GPS+request — shows disabled buttons (no idle-screen flash)
     setBusy(true);
     setError('');
 
@@ -375,13 +375,25 @@ export default function EmployeeDashboard() {
         body: JSON.stringify({ project_id: project.id, gps: gpsData }),
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (res.status === 409) {
+        // Active session already exists (duplicate tap) — resolve to it instead of erroring
+        setPicking(false);
+        await loadAll();
+      } else if (!res.ok) {
+        setPicking(false);
         setError(data.error ?? 'Check-in failed');
       } else {
-        setSession({ ...data.data, project_name: project.name });
-        await loadAll();
+        // Optimistically set session BEFORE closing picker — no idle-screen flash
+        setSession(data.data);
+        setPicking(false);
+        // Background-refresh recent projects list without awaiting (avoids clobbering session)
+        fetch(api('/projects/mine'), { credentials: 'include' })
+          .then(r => r.json())
+          .then(d => { if (d.data) setAllProjects(d.data); })
+          .catch(() => {});
       }
     } catch {
+      setPicking(false);
       setError('Network error. Please try again.');
     }
     setBusy(false);
@@ -495,6 +507,7 @@ export default function EmployeeDashboard() {
         <IdleView
           user={user}
           todayEntries={todayEntries}
+          busy={busy}
           onCheckin={() => { setPickMode('checkin'); setError(''); setPicking(true); }}
         />
       )}

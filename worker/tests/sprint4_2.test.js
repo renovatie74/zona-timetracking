@@ -159,18 +159,18 @@ describe('TC-4.2-X: Extras rejects mileage type', () => {
     const res = await extrasRoutes.create(req, env);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/invalid type/i);
+    expect(body.error).toMatch(/cannot create/i);
   });
 
-  it('TC-4.2-X03: extra_work still works', async () => {
+  it('TC-4.2-X03: own_cost still works', async () => {
     const req = makeRequest('POST', '/api/extras/mine',
-      { project_id: projectId, type: 'extra_work', description: 'Overtime' },
+      { project_id: projectId, type: 'own_cost', description: 'Overtime equipment' },
       worker.cookie);
     const res = await extrasRoutes.createMine(req, env);
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.data.type).toBe('extra_work');
-    expect(body.data.description).toBe('Overtime');
+    expect(body.data.type).toBe('own_cost');
+    expect(body.data.description).toBe('Overtime equipment');
   });
 
   it('TC-4.2-X04: own_cost still works', async () => {

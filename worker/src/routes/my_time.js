@@ -70,12 +70,14 @@ export async function createMyEntry(request, env) {
     return Response.json({ error: 'Future time entries are not allowed.' }, { status: 422 });
   }
 
-  // Verify project is active and assigned to this employee
+  // Verify project is accessible: explicitly assigned, or open to all (no assignments on project)
   const proj = await env.DB.prepare(
-    `SELECT pa.project_id
-     FROM   ProjectAssignments pa
-     JOIN   Projects p ON p.id = pa.project_id
-     WHERE  pa.project_id = ? AND pa.user_id = ? AND p.is_active = 1`,
+    `SELECT p.id FROM Projects p
+     WHERE p.id = ? AND p.is_active = 1
+       AND (
+         EXISTS (SELECT 1 FROM ProjectAssignments pa WHERE pa.project_id = p.id AND pa.user_id = ?)
+         OR NOT EXISTS (SELECT 1 FROM ProjectAssignments x WHERE x.project_id = p.id)
+       )`,
   ).bind(Number(project_id), request.user.id).first();
   if (!proj) return Response.json({ error: 'Project not found or not assigned to you' }, { status: 400 });
 

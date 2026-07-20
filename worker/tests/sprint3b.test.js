@@ -205,7 +205,7 @@ it('TC-3B06: second checkin is blocked with 409', async () => {
   expect(body.error).toContain('check out');
 });
 
-// ── TC-3B07: collision error message contains project name and time ───────────
+// ── TC-3B07: collision error message contains project name ───────────────────
 it('TC-3B07: collision error message contains project name', async () => {
   const uid  = await seedUser();
   const pid  = await seedProject();
@@ -219,9 +219,50 @@ it('TC-3B07: collision error message contains project name', async () => {
   req2.params = {};
   const res2 = await timeEntryRoutes.checkin(req2, env);
   const body = await res2.json();
-  // Project name is in the error
   const proj = await env.DB.prepare('SELECT name FROM Projects WHERE id = ?').bind(pid).first();
   expect(body.error).toContain(proj.name);
+});
+
+// ── TC-3B-DUP-01: 409 returns existing_session with ISO start_time ────────────
+it('TC-3B-DUP-01: 409 includes existing_session with ISO start_time', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const req1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  req1.params = {};
+  const res1 = await timeEntryRoutes.checkin(req1, env);
+  const first = await res1.json();
+
+  const req2 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  req2.params = {};
+  const res2  = await timeEntryRoutes.checkin(req2, env);
+  expect(res2.status).toBe(409);
+  const body = await res2.json();
+
+  expect(body.existing_session).toBeDefined();
+  expect(body.existing_session.start_time).toBe(first.data.start_time);
+  expect(body.existing_session.project_name).toBeDefined();
+  // start_time must be ISO (parseable, not UTC-offset-formatted string)
+  expect(new Date(body.existing_session.start_time).toISOString()).toBe(body.existing_session.start_time);
+});
+
+// ── TC-3B-DUP-02: 409 error string does NOT contain a bare hh:mm time ─────────
+it('TC-3B-DUP-02: 409 error does not embed a raw UTC time string', async () => {
+  const uid  = await seedUser();
+  const pid  = await seedProject();
+  const cook = await cookieFor(uid, 'employee');
+
+  const req1 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  req1.params = {};
+  await timeEntryRoutes.checkin(req1, env);
+
+  const req2 = makeRequest('POST', '/api/time-entries/checkin', { project_id: pid }, cook);
+  req2.params = {};
+  const res2 = await timeEntryRoutes.checkin(req2, env);
+  const body = await res2.json();
+  // Error string should not contain a bare hh:mm pattern (timezone-ambiguous)
+  expect(body.error).not.toMatch(/\b\d{2}:\d{2}\b/);
 });
 
 // ── TC-3B08: checkin requires authentication ─────────────────────────────────

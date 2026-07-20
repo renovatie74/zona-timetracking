@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useNavigate }         from 'react-router-dom';
 import { api }                 from '../../api.js';
 import { useAuth }             from '../../auth.jsx';
 import AppShell                from '../AppShell.jsx';
+import { useToast }            from '../../hooks/useToast.jsx';
 
 const EMPTY = { name: '', supervisor_id: '' };
 
 export default function Teams() {
   const { user }   = useAuth();
-  const navigate   = useNavigate();
+  const { toast }  = useToast();
   const isAdmin    = user?.role === 'administrator';
 
   const [items,        setItems]        = useState([]);
@@ -44,7 +44,6 @@ export default function Teams() {
       const data = await api.get('/api/teams' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
-      if (e.status === 401) navigate('/login', { replace: true });
       setError(e.message);
     } finally {
       setLoading(false);
@@ -60,6 +59,16 @@ export default function Teams() {
   const filtered = search
     ? items.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
     : items;
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'Escape') return;
+      if (confirm) { setConfirm(null); return; }
+      if (modal)   { setModal(null);   return; }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modal, confirm]);
 
   function openCreate() {
     setForm(EMPTY);
@@ -87,8 +96,10 @@ export default function Teams() {
       };
       if (modal.mode === 'create') {
         await api.post('/api/teams', body);
+        toast('Team created.');
       } else {
         await api.put(`/api/teams/${modal.id}`, body);
+        toast('Team updated.');
       }
       setModal(null);
       load(search, statusFilter);
@@ -104,6 +115,7 @@ export default function Teams() {
     setSaving(true);
     try {
       await api.delete(`/api/teams/${confirm.id}`);
+      toast('Team deactivated.');
       setConfirm(null);
       setModal(null);
       load(search, statusFilter);

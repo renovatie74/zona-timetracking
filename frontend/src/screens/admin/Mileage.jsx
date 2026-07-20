@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useNavigate }         from 'react-router-dom';
-import { api }     from '../../api.js';
-import { useAuth } from '../../auth.jsx';
-import AppShell    from '../AppShell.jsx';
+import { api }      from '../../api.js';
+import AppShell     from '../AppShell.jsx';
+import { useToast } from '../../hooks/useToast.jsx';
+import { weekStartFor } from '../../lib/weekUtils.js';
+
+function addWeeks(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n * 7);
+  return d.toISOString().slice(0, 10);
+}
 
 function fmtWeek(weekStart) {
   if (!weekStart) return '—';
-  const d = new Date(weekStart + 'T00:00:00Z');
-  const end = new Date(d);
+  const d   = new Date(weekStart + 'T00:00:00Z');
+  const end = new Date(weekStart + 'T00:00:00Z');
   end.setUTCDate(d.getUTCDate() + 6);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${months[d.getUTCMonth()]} ${d.getUTCDate()} – ${months[end.getUTCMonth()]} ${end.getUTCDate()}, ${end.getUTCFullYear()}`;
@@ -15,240 +21,248 @@ function fmtWeek(weekStart) {
 
 function fmtDate(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const d = new Date(iso + 'T00:00:00Z');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
-function mondayOf(dateStr) {
-  const d   = new Date(dateStr + 'T00:00:00Z');
-  const day = d.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
-
-const EMPTY_FORM = { user_id: '', week_start: '', mileage_km: '' };
+const TODAY = new Date().toISOString().slice(0, 10);
 
 export default function AdminMileage() {
-  const { user }  = useAuth();
-  const navigate  = useNavigate();
+  const { toast } = useToast();
 
-  const [weekFilter, setWeekFilter] = useState('');
-  const [userFilter, setUserFilter] = useState('');
+  const [weekFilter,    setWeekFilter]    = useState(() => weekStartFor(TODAY));
+  const [userFilter,    setUserFilter]    = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
+  const [statusFilter,  setStatusFilter]  = useState('all');
 
-  const [items,     setItems]     = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState('');
-  const [modal,     setModal]     = useState(null);
-  const [saving,    setSaving]    = useState(false);
-  const [form,      setForm]      = useState(EMPTY_FORM);
-
-  const isAdmin = user?.role === 'administrator';
+  const [items,      setItems]      = useState([]);
+  const [employees,  setEmployees]  = useState([]);
+  const [projects,   setProjects]   = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState('');
+  const [completing, setCompleting] = useState(null);
+  const [reopening,  setReopening]  = useState(null);
 
   useEffect(() => {
     api.get('/api/employees?status=active')
       .then(d => setEmployees(Array.isArray(d) ? d : (d ?? [])))
       .catch(() => {});
-    load('', '');
+    api.get('/api/projects')
+      .then(d => setProjects(Array.isArray(d) ? d : (d?.data ?? d ?? [])))
+      .catch(() => {});
+    load(weekStartFor(TODAY), '', '', 'all');
   }, []); // eslint-disable-line
 
-  async function load(wf, uf) {
+  async function load(week, uid, pid, sf) {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams();
-      if (wf) params.set('week_start', wf);
-      if (uf) params.set('user_id',    uf);
-      const qs   = params.toString();
-      const data = await api.get('/api/mileage' + (qs ? `?${qs}` : ''));
+      if (week) params.set('week', week);
+      if (uid)  params.set('user_id', uid);
+      if (pid)  params.set('project_id', pid);
+      if (sf !== 'all') params.set('status', sf);
+      const data = await api.get('/api/mileage?' + params.toString());
       setItems(data?.data ?? data ?? []);
     } catch (e) {
-      if (e.status === 401) { navigate('/login', { replace: true }); return; }
       setError(e.message);
     } finally {
       setLoading(false);
     }
   }
 
-  function applyFilters(wf, uf) {
-    setWeekFilter(wf);
-    setUserFilter(uf);
-    load(wf, uf);
+  function applyFilters(week, uid, pid, sf) {
+    setWeekFilter(week);
+    setUserFilter(uid);
+    setProjectFilter(pid);
+    setStatusFilter(sf);
+    load(week, uid, pid, sf);
   }
 
-  function openCreate() {
-    setForm(EMPTY_FORM);
-    setError('');
-    setModal({ mode: 'create' });
+  function goWeek(delta) {
+    const ws = addWeeks(weekFilter, delta);
+    applyFilters(ws, userFilter, projectFilter, statusFilter);
   }
 
-  function openEdit(item) {
-    setForm({
-      user_id:    String(item.user_id),
-      week_start: item.week_start,
-      mileage_km: String(item.mileage_km),
-    });
-    setError('');
-    setModal({ mode: 'edit', item });
-  }
-
-  async function handleSave(e) {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
+  async function handleComplete(item) {
+    setCompleting(item.id);
     try {
-      const userId    = Number(form.user_id);
-      const weekStart = mondayOf(form.week_start);
-      const km        = Number(form.mileage_km);
-
-      await api.put(`/api/mileage/${userId}/${weekStart}`, { mileage_km: km });
-      setModal(null);
-      load(weekFilter, userFilter);
+      await api.post(`/api/mileage/${item.id}/complete`, {});
+      toast('Mileage entry marked complete.');
+      load(weekFilter, userFilter, projectFilter, statusFilter);
     } catch (e) {
       setError(e.message);
     } finally {
-      setSaving(false);
+      setCompleting(null);
     }
   }
+
+  async function handleReopen(item) {
+    setReopening(item.id);
+    try {
+      await api.post(`/api/mileage/${item.id}/reopen`, {});
+      toast('Mileage entry reopened.');
+      load(weekFilter, userFilter, projectFilter, statusFilter);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setReopening(null);
+    }
+  }
+
+  function resetFilters() {
+    applyFilters(weekStartFor(TODAY), '', '', 'all');
+  }
+
+  const totalKm = items.reduce((s, i) => s + i.km, 0);
 
   return (
     <AppShell title="Mileage">
       <div className="page">
         <div className="page-header">
-          <h1 className="page-title">Weekly Mileage</h1>
-          {isAdmin && (
-            <button className="btn btn-solid" onClick={openCreate}>+ Add Entry</button>
-          )}
+          <h1 className="page-title">Mileage</h1>
         </div>
 
-        {/* Filters */}
-        <div className="toolbar" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          <input
-            type="date"
-            className="form-input toolbar-select"
-            style={{ width: '160px' }}
-            title="Filter by week (pick any day — shows that week)"
-            value={weekFilter}
-            onChange={e => applyFilters(e.target.value ? mondayOf(e.target.value) : '', userFilter)}
-          />
+        {/* Week nav */}
+        <div className="toolbar" style={{ alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <button className="btn btn-outline" style={{ padding: '0.4rem 0.75rem' }} onClick={() => goWeek(-1)}>‹ Prev</button>
+            <span style={{ padding: '0 0.5rem', fontSize: '0.875rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
+              {fmtWeek(weekFilter)}
+            </span>
+            <button className="btn btn-outline" style={{ padding: '0.4rem 0.75rem' }} onClick={() => goWeek(1)}>Next ›</button>
+          </div>
 
-          <select className="form-select toolbar-select" style={{ width: '200px' }}
+          {/* Employee filter */}
+          <select
+            className="form-select toolbar-select"
+            style={{ width: '200px' }}
             value={userFilter}
-            onChange={e => applyFilters(weekFilter, e.target.value)}>
+            onChange={e => applyFilters(weekFilter, e.target.value, projectFilter, statusFilter)}
+          >
             <option value="">All Employees</option>
             {employees.map(emp => (
-              <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>
+              <option key={emp.id} value={emp.id}>
+                {emp.first_name} {emp.last_name}
+              </option>
             ))}
           </select>
 
-          <button className="btn btn-outline toolbar-reset"
-            onClick={() => applyFilters('', '')}>
-            Reset
-          </button>
+          {/* Project filter */}
+          <select
+            className="form-select toolbar-select"
+            style={{ width: '200px' }}
+            value={projectFilter}
+            onChange={e => applyFilters(weekFilter, userFilter, e.target.value, statusFilter)}
+          >
+            <option value="">All Projects</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+
+          {/* Status filter */}
+          <select
+            className="form-select toolbar-select"
+            style={{ width: '140px' }}
+            value={statusFilter}
+            onChange={e => applyFilters(weekFilter, userFilter, projectFilter, e.target.value)}
+          >
+            <option value="all">All Statuses</option>
+            <option value="open">Open</option>
+            <option value="completed">Completed</option>
+          </select>
+
+          <button className="btn btn-outline toolbar-reset" onClick={resetFilters}>Reset</button>
         </div>
 
-        {error && !modal && <div className="error-banner">{error}</div>}
+        {error && <div className="error-banner">{error}</div>}
 
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Week</th>
+                <th>Date</th>
                 <th>Employee</th>
-                <th>Mileage (km)</th>
-                <th>Updated</th>
-                {isAdmin && <th>Actions</th>}
+                <th>Project</th>
+                <th>Km</th>
+                <th>Note</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 5 : 4}>Loading…</td></tr>
+                <tr className="empty-row"><td colSpan={7}>Loading…</td></tr>
               ) : items.length === 0 ? (
-                <tr className="empty-row"><td colSpan={isAdmin ? 5 : 4}>No mileage records found.</td></tr>
+                <tr className="empty-row"><td colSpan={7}>No mileage entries found.</td></tr>
               ) : items.map(item => (
-                <tr key={`${item.user_id}-${item.week_start}`}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{fmtWeek(item.week_start)}</td>
+                <tr key={item.id}>
+                  <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(item.work_date)}</td>
                   <td>
                     <span style={{ fontWeight: 500 }}>{item.employee_name}</span>
-                    <span style={{ marginLeft: 6, fontSize: '0.8rem', color: 'var(--color-grey-600)' }}>
-                      {item.employee_code}
-                    </span>
+                    {item.employee_code && (
+                      <span style={{ marginLeft: 6, fontSize: '0.8rem', color: 'var(--color-grey-600)' }}>
+                        {item.employee_code}
+                      </span>
+                    )}
                   </td>
-                  <td style={{ fontWeight: 600 }}>{item.mileage_km} km</td>
-                  <td style={{ whiteSpace: 'nowrap', color: 'var(--color-grey-600)' }}>
-                    {fmtDate(item.updated_at)}
+                  <td>
+                    <span>{item.project_name}</span>
+                    {item.project_code && (
+                      <span style={{ marginLeft: 6, fontSize: '0.8rem', color: 'var(--color-grey-600)' }}>
+                        {item.project_code}
+                      </span>
+                    )}
                   </td>
-                  {isAdmin && (
-                    <td>
-                      <button className="btn-ghost" onClick={() => openEdit(item)}>Edit</button>
-                    </td>
-                  )}
+                  <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{item.km} km</td>
+                  <td style={{ color: 'var(--color-grey-700)', fontSize: '0.875rem' }}>
+                    {item.note ?? '—'}
+                  </td>
+                  <td>
+                    {item.status === 'completed' ? (
+                      <span className="badge" style={{ background: 'var(--color-green-50,#f0fdf4)', color: 'var(--color-green)', border: '1px solid currentColor' }}>
+                        Completed
+                      </span>
+                    ) : (
+                      <span className="badge" style={{ background: 'var(--color-amber-50,#fffbeb)', color: 'var(--color-amber-dark,#92660a)', border: '1px solid currentColor' }}>
+                        Open
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {item.status === 'open' && (
+                      <button
+                        className="btn-ghost btn-ghost-green"
+                        disabled={completing === item.id}
+                        onClick={() => handleComplete(item)}
+                      >
+                        {completing === item.id ? 'Saving…' : 'Mark Complete'}
+                      </button>
+                    )}
+                    {item.status === 'completed' && (
+                      <button
+                        className="btn-ghost"
+                        disabled={reopening === item.id}
+                        onClick={() => handleReopen(item)}
+                      >
+                        {reopening === item.id ? 'Saving…' : 'Reopen'}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {modal && (
-        <div className="modal-backdrop" onClick={() => setModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">
-              {modal.mode === 'create' ? 'Add Mileage Entry' : 'Edit Mileage'}
-            </h2>
-            <form onSubmit={handleSave}>
-              {error && <div className="error-banner">{error}</div>}
-
-              <div className="form-group">
-                <label className="form-label">Employee *</label>
-                <select className="form-select" required value={form.user_id}
-                  onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}>
-                  <option value="">— Select employee —</option>
-                  {employees.map(emp => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.first_name} {emp.last_name} ({emp.employee_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Week (pick any day in the week) *</label>
-                <input
-                  type="date"
-                  className="form-input"
-                  required
-                  value={form.week_start}
-                  onChange={e => setForm(f => ({ ...f, week_start: e.target.value }))}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Mileage (km) *</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  required
-                  min="0.01"
-                  step="0.01"
-                  placeholder="e.g. 142.5"
-                  value={form.mileage_km}
-                  onChange={e => setForm(f => ({ ...f, mileage_km: e.target.value }))}
-                />
-              </div>
-
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-solid" disabled={saving}>
-                  {saving ? 'Saving…' : modal.mode === 'create' ? 'Save' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+        {!loading && items.length > 0 && (
+          <div style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--color-grey-700)', textAlign: 'right' }}>
+            Total: <strong>{totalKm.toFixed(1)} km</strong> ({items.length} {items.length === 1 ? 'entry' : 'entries'})
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </AppShell>
   );
 }

@@ -295,11 +295,13 @@ export async function checkin(request, env) {
   ).bind(request.user.id).first();
 
   if (existing) {
-    const t   = new Date(existing.start_time);
-    const hh  = String(t.getUTCHours()).padStart(2, '0');
-    const mm  = String(t.getUTCMinutes()).padStart(2, '0');
     return Response.json({
-      error: `You already have an active session started at ${hh}:${mm} on ${existing.project_name}. Please check out before starting a new session.`,
+      error: `You already have an active session on ${existing.project_name}. Please check out before starting a new session.`,
+      existing_session: {
+        id:           existing.id,
+        start_time:   existing.start_time,
+        project_name: existing.project_name,
+      },
     }, { status: 409 });
   }
 

@@ -17,7 +17,7 @@ crons = ["30 19 * * *"]  # 23:30 Dubai (UTC+4) = 19:30 UTC
 
 [env.dev.vars]
 ENVIRONMENT = "development"
-EMAIL_FROM  = "noreply@dev.zonaproperties.ae"
+EMAIL_FROM  = "noreply@zonaproperties.ae"
 APP_URL     = "https://dev-time.zonaproperties.ae"
 
 # Secrets (set via wrangler secret put, never committed):

@@ -1,19 +1,11 @@
 import { requireRole, requireAuth }        from '../middleware/auth.js';
 import { getManagerScope }                 from '../lib/scope.js';
-import { getCurrentBusinessWeekStart,
-         isCurrentBusinessWeek }           from '../lib/businessTime.js';
 
 const ADMIN_OR_MGR = requireRole('administrator', 'manager');
 
-const VALID_TYPES    = ['extra_work', 'own_cost'];
-const VALID_STATUSES = ['open', 'processed'];
-
-function validateKm(mileage_km) {
-  if (mileage_km == null) return 'mileage_km is required';
-  const km = Number(mileage_km);
-  if (!isFinite(km) || km < 0) return 'mileage_km must be a non-negative number';
-  return null;
-}
+const VALID_TYPES         = ['extra_work', 'own_cost'];
+const CREATABLE_TYPES     = ['own_cost']; // extra_work is legacy — display only
+const VALID_STATUSES      = ['open', 'waiting_for_manager', 'processed'];
 
 const SELECT_COLS = `
   e.id, e.user_id, e.project_id,
@@ -23,13 +15,53 @@ const SELECT_COLS = `
   e.type, e.description, e.status,
   e.processed_at,
   (pb.first_name || ' ' || pb.last_name) AS processed_by_name,
-  e.created_at, e.updated_at
+  e.created_at, e.updated_at,
+  (SELECT COUNT(*) FROM ExtraComments WHERE extra_id = e.id) AS comment_count,
+  (SELECT COUNT(*) FROM ExtraComments WHERE extra_id = e.id AND comment_type = 'manager_reply') AS has_manager_reply
 `;
 
 function validatePayload(type, description) {
   if (!VALID_TYPES.includes(type)) return 'Invalid type';
   if (!description?.trim()) return 'description is required';
   return null;
+}
+
+async function addComment(db, extraId, userId, commentType, comment) {
+  const now = new Date().toISOString();
+  await db.prepare(
+    `INSERT INTO ExtraComments (extra_id, user_id, comment_type, comment, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).bind(extraId, userId, commentType, comment || null, now).run();
+}
+
+async function fetchComments(db, extraId) {
+  const { results } = await db.prepare(
+    `SELECT ec.id, ec.extra_id, ec.user_id, ec.comment_type, ec.comment, ec.created_at,
+            (u.first_name || ' ' || u.last_name) AS author_name
+     FROM   ExtraComments ec
+     JOIN   Users u ON u.id = ec.user_id
+     WHERE  ec.extra_id = ?
+     ORDER  BY ec.created_at ASC`,
+  ).bind(extraId).all();
+  return results;
+}
+
+// ── GET /api/extras/summary — lightweight counts for sidebar badge ────────────
+export async function summary(request, env) {
+  const guard = await ADMIN_OR_MGR(request, env);
+  if (guard) return guard;
+
+  const { results } = await env.DB.prepare(
+    `SELECT status, COUNT(*) AS cnt
+     FROM Extras
+     WHERE is_deleted = 0 AND status IN ('open', 'waiting_for_manager')
+     GROUP BY status`,
+  ).all();
+
+  const open    = results.find(r => r.status === 'open')?.cnt                ?? 0;
+  const waiting = results.find(r => r.status === 'waiting_for_manager')?.cnt ?? 0;
+
+  return Response.json({ data: { open, waiting_for_manager: waiting } });
 }
 
 // ── GET /api/extras/mine ──────────────────────────────────────────────────────
@@ -58,32 +90,7 @@ export async function listMine(request, env) {
      ORDER  BY e.created_at DESC`,
   ).bind(...params).all();
 
-  // Fetch WeeklyMileage and append as mileage cards
-  const { results: wmRows } = await env.DB.prepare(
-    `SELECT id AS wm_id, week_start, mileage_km, updated_at
-     FROM   WeeklyMileage
-     WHERE  user_id = ?
-     ORDER  BY week_start DESC`,
-  ).bind(request.user.id).all();
-
-  const mileageCards = wmRows.map(wm => ({
-    id:           null,
-    wm_id:        wm.wm_id,
-    type:         'mileage',
-    mileage_km:   wm.mileage_km,
-    week_start:   wm.week_start,
-    status:       isCurrentBusinessWeek(wm.week_start) ? 'open' : 'recorded',
-    created_at:   wm.updated_at,
-    project_id:   null,
-    project_name: null,
-    project_code: null,
-    description:  null,
-  }));
-
-  const combined = [...results, ...mileageCards]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-  return Response.json({ data: combined });
+  return Response.json({ data: results });
 }
 
 // ── POST /api/extras/mine ─────────────────────────────────────────────────────
@@ -91,61 +98,28 @@ export async function createMine(request, env) {
   const guard = await requireAuth(request, env);
   if (guard) return guard;
 
-  const { project_id, type, description, mileage_km } = await request.json();
+  const { project_id, type, description } = await request.json();
 
   if (!type) return Response.json({ error: 'type is required' }, { status: 400 });
 
-  // Mileage → write to WeeklyMileage for current week (upsert)
-  if (type === 'mileage') {
-    const kmErr = validateKm(mileage_km);
-    if (kmErr) return Response.json({ error: kmErr }, { status: 400 });
-
-    const km       = Number(mileage_km);
-    const weekStart = getCurrentBusinessWeekStart();
-    const now       = new Date().toISOString();
-
-    await env.DB.prepare(
-      `INSERT INTO WeeklyMileage (user_id, week_start, mileage_km, created_by, updated_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, week_start) DO UPDATE
-         SET mileage_km = excluded.mileage_km,
-             updated_by = excluded.updated_by,
-             updated_at = excluded.updated_at`,
-    ).bind(request.user.id, weekStart, km, request.user.id, request.user.id, now, now).run();
-
-    const wm = await env.DB.prepare(
-      `SELECT id AS wm_id, week_start, mileage_km, updated_at
-       FROM   WeeklyMileage WHERE user_id = ? AND week_start = ?`,
-    ).bind(request.user.id, weekStart).first();
-
-    return Response.json({
-      data: {
-        id:           null,
-        wm_id:        wm.wm_id,
-        type:         'mileage',
-        mileage_km:   wm.mileage_km,
-        week_start:   wm.week_start,
-        status:       'open',
-        created_at:   wm.updated_at,
-        project_id:   null,
-        project_name: null,
-        project_code: null,
-        description:  null,
-      },
-    }, { status: 201 });
+  // extra_work is legacy — display only; new entries are own_cost only
+  if (!CREATABLE_TYPES.includes(type)) {
+    return Response.json({ error: `Cannot create new entries of type '${type}'` }, { status: 400 });
   }
 
-  // Regular extra (own_cost or extra_work)
   if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
 
   const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
+  // Verify project is accessible: explicitly assigned, or open to all (no assignments on project)
   const proj = await env.DB.prepare(
-    `SELECT pa.project_id
-     FROM   ProjectAssignments pa
-     JOIN   Projects p ON p.id = pa.project_id
-     WHERE  pa.project_id = ? AND pa.user_id = ? AND p.is_active = 1`,
+    `SELECT p.id FROM Projects p
+     WHERE p.id = ? AND p.is_active = 1
+       AND (
+         EXISTS (SELECT 1 FROM ProjectAssignments pa WHERE pa.project_id = p.id AND pa.user_id = ?)
+         OR NOT EXISTS (SELECT 1 FROM ProjectAssignments x WHERE x.project_id = p.id)
+       )`,
   ).bind(Number(project_id), request.user.id).first();
   if (!proj) return Response.json({ error: 'Project not found or not assigned to you' }, { status: 400 });
 
@@ -155,13 +129,16 @@ export async function createMine(request, env) {
      VALUES (?, ?, ?, ?, 'open', ?, ?, ?)`,
   ).bind(request.user.id, Number(project_id), type, description.trim(), request.user.id, now, now).run();
 
+  const id = result.meta.last_row_id;
+  await addComment(env.DB, id, request.user.id, 'created', null);
+
   const entry = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
             e.type, e.description, e.status, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  e.id = ?`,
-  ).bind(result.meta.last_row_id).first();
+  ).bind(id).first();
 
   return Response.json({ data: entry }, { status: 201 });
 }
@@ -232,18 +209,21 @@ export async function list(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
   if (guard) return guard;
 
-  const url        = new URL(request.url);
-  const status     = url.searchParams.get('status')     ?? 'open';
-  const project_id = url.searchParams.get('project_id') ?? '';
-  const user_id    = url.searchParams.get('user_id')    ?? '';
-  const type       = url.searchParams.get('type')       ?? '';
-  const date_from  = url.searchParams.get('date_from')  ?? '';
-  const date_to    = url.searchParams.get('date_to')    ?? '';
+  const url            = new URL(request.url);
+  const status         = url.searchParams.get('status')          ?? 'open';
+  const project_id     = url.searchParams.get('project_id')      ?? '';
+  const user_id        = url.searchParams.get('user_id')         ?? '';
+  const type           = url.searchParams.get('type')            ?? '';
+  const olderThanDays  = url.searchParams.get('older_than_days') ?? '';
 
   const conditions = ['e.is_deleted = 0'];
   const params     = [];
 
-  if (request.user.role === 'manager') {
+  // Scope filter applies to managers, BUT not when browsing the review queue —
+  // "Manager is ALWAYS Pawel": waiting_for_manager items are sent to a single
+  // global reviewer, not scoped by team assignment.
+  const isReviewQueue = status === 'waiting_for_manager';
+  if (request.user.role === 'manager' && !isReviewQueue) {
     const scope = await getManagerScope(env.DB, request.user.id);
     if (scope.userIds.length === 0) return Response.json({ data: [] });
     const ph = scope.userIds.map(() => '?').join(',');
@@ -251,15 +231,22 @@ export async function list(request, env) {
     params.push(...scope.userIds);
   }
 
-  if (status && status !== 'all' && VALID_STATUSES.includes(status)) {
+  if (status === 'open_all') {
+    // Show both open and waiting_for_manager
+    conditions.push("e.status IN ('open', 'waiting_for_manager')");
+  } else if (status && status !== 'all' && VALID_STATUSES.includes(status)) {
     conditions.push('e.status = ?');
     params.push(status);
   }
   if (project_id) { conditions.push('e.project_id = ?'); params.push(Number(project_id)); }
   if (user_id)    { conditions.push('e.user_id = ?');    params.push(Number(user_id)); }
   if (type && VALID_TYPES.includes(type)) { conditions.push('e.type = ?'); params.push(type); }
-  if (date_from)  { conditions.push("date(e.created_at) >= ?"); params.push(date_from); }
-  if (date_to)    { conditions.push("date(e.created_at) <= ?"); params.push(date_to); }
+  if (olderThanDays && Number.isFinite(Number(olderThanDays))) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - Math.abs(Number(olderThanDays)));
+    conditions.push('e.created_at < ?');
+    params.push(cutoff.toISOString());
+  }
 
   const where = conditions.join(' AND ');
   const { results } = await env.DB.prepare(
@@ -276,6 +263,27 @@ export async function list(request, env) {
   return Response.json({ data: results });
 }
 
+// ── GET /api/extras/:id — single extra with comments ─────────────────────────
+export async function getOne(request, env) {
+  const guard = await ADMIN_OR_MGR(request, env);
+  if (guard) return guard;
+
+  const id = request.params.id;
+  const extra = await env.DB.prepare(
+    `SELECT ${SELECT_COLS}
+     FROM   Extras e
+     JOIN   Users    u  ON u.id = e.user_id
+     JOIN   Projects p  ON p.id = e.project_id
+     LEFT JOIN Users pb ON pb.id = e.processed_by
+     WHERE  e.id = ? AND e.is_deleted = 0`,
+  ).bind(id).first();
+  if (!extra) return Response.json({ error: 'Extra not found' }, { status: 404 });
+
+  const comments = await fetchComments(env.DB, id);
+
+  return Response.json({ data: { ...extra, comments } });
+}
+
 // ── POST /api/extras — admin create ──────────────────────────────────────────
 export async function create(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
@@ -287,6 +295,10 @@ export async function create(request, env) {
   if (!project_id) return Response.json({ error: 'project_id is required' }, { status: 400 });
   if (!type)       return Response.json({ error: 'type is required' },        { status: 400 });
 
+  if (!CREATABLE_TYPES.includes(type)) {
+    return Response.json({ error: `Cannot create new entries of type '${type}'` }, { status: 400 });
+  }
+
   const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
@@ -296,6 +308,9 @@ export async function create(request, env) {
      VALUES (?, ?, ?, ?, 'open', ?, ?, ?)`,
   ).bind(Number(user_id), Number(project_id), type, description.trim(), request.user.id, now, now).run();
 
+  const newId = result.meta.last_row_id;
+  await addComment(env.DB, newId, request.user.id, 'created', null);
+
   const entry = await env.DB.prepare(
     `SELECT ${SELECT_COLS}
      FROM   Extras e
@@ -303,7 +318,7 @@ export async function create(request, env) {
      JOIN   Projects p  ON p.id = e.project_id
      LEFT JOIN Users pb ON pb.id = e.processed_by
      WHERE  e.id = ?`,
-  ).bind(result.meta.last_row_id).first();
+  ).bind(newId).first();
 
   return Response.json({ data: entry }, { status: 201 });
 }
@@ -366,8 +381,8 @@ export async function remove(request, env) {
   return Response.json({ ok: true });
 }
 
-// ── POST /api/extras/:id/process ─────────────────────────────────────────────
-export async function process(request, env) {
+// ── POST /api/extras/:id/complete ─────────────────────────────────────────────
+export async function complete(request, env) {
   const guard = await ADMIN_OR_MGR(request, env);
   if (guard) return guard;
 
@@ -387,7 +402,68 @@ export async function process(request, env) {
      WHERE id = ?`,
   ).bind(request.user.id, now, request.user.id, now, id).run();
 
+  await addComment(env.DB, id, request.user.id, 'completed', null);
+
   return Response.json({ ok: true });
+}
+
+// ── POST /api/extras/:id/request-review ──────────────────────────────────────
+export async function requestReview(request, env) {
+  const guard = await ADMIN_OR_MGR(request, env);
+  if (guard) return guard;
+
+  const id  = request.params.id;
+  const old = await env.DB.prepare(
+    `SELECT id, status FROM Extras WHERE id = ? AND is_deleted = 0`,
+  ).bind(id).first();
+  if (!old) return Response.json({ error: 'Extra not found' }, { status: 404 });
+  if (old.status !== 'open') {
+    return Response.json({ error: 'Only open extras can be sent for review' }, { status: 409 });
+  }
+
+  const body    = await request.json().catch(() => ({}));
+  const comment = body.comment?.trim() || null;
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE Extras SET status = 'waiting_for_manager', updated_by = ?, updated_at = ? WHERE id = ?`,
+  ).bind(request.user.id, now, id).run();
+
+  await addComment(env.DB, id, request.user.id, 'review_requested', comment);
+
+  return Response.json({ ok: true });
+}
+
+// ── POST /api/extras/:id/manager-reply ───────────────────────────────────────
+export async function managerReply(request, env) {
+  const guard = await ADMIN_OR_MGR(request, env);
+  if (guard) return guard;
+
+  const id  = request.params.id;
+  const old = await env.DB.prepare(
+    `SELECT id, status FROM Extras WHERE id = ? AND is_deleted = 0`,
+  ).bind(id).first();
+  if (!old) return Response.json({ error: 'Extra not found' }, { status: 404 });
+  if (old.status !== 'waiting_for_manager') {
+    return Response.json({ error: 'Extra is not waiting for manager review' }, { status: 409 });
+  }
+
+  const body    = await request.json().catch(() => ({}));
+  const comment = body.comment?.trim() || null;
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `UPDATE Extras SET status = 'open', updated_by = ?, updated_at = ? WHERE id = ?`,
+  ).bind(request.user.id, now, id).run();
+
+  await addComment(env.DB, id, request.user.id, 'manager_reply', comment);
+
+  return Response.json({ ok: true });
+}
+
+// ── POST /api/extras/:id/process — kept for backward compat ──────────────────
+export async function process(request, env) {
+  return complete(request, env);
 }
 
 // ── POST /api/extras/:id/reopen ───────────────────────────────────────────────

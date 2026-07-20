@@ -259,13 +259,13 @@ describe('TC-4.3-A: Admin Extras queue excludes mileage', () => {
     expect(mileageEntries.length).toBe(0);
   });
 
-  it('TC-4.3-A02: admin can still create own_cost and extra_work', async () => {
+  it('TC-4.3-A02: admin can still create own_cost', async () => {
     const req = makeRequest('POST', '/api/extras',
-      { user_id: worker.id, project_id: projectId, type: 'extra_work', description: 'Site visit' },
+      { user_id: worker.id, project_id: projectId, type: 'own_cost', description: 'Site visit' },
       admin.cookie);
     const res = await extrasRoutes.create(req, env);
     expect(res.status).toBe(201);
-    expect((await res.json()).data.type).toBe('extra_work');
+    expect((await res.json()).data.type).toBe('own_cost');
   });
 
 });

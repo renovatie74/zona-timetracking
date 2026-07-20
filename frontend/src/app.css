@@ -291,6 +291,20 @@ button {
 
 .nav-item.active svg { opacity: 1; color: var(--color-gold); }
 
+.nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--color-gold);
+  color: #1a1814;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
 .sidebar-footer {
   padding: var(--space-4);
   padding-bottom: max(var(--space-4), env(safe-area-inset-bottom, var(--space-4)));
@@ -954,7 +968,8 @@ tbody tr:hover { background: #FDFCFA; }
   inset: 0;
   background: rgba(0,0,0,0.45);
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
   z-index: 200;
 }
 .em-modal {
@@ -1243,7 +1258,7 @@ tbody tr:hover { background: #FDFCFA; }
 /* ── Sprint 3C — My Time screen ──────────────────────────────────────────────── */
 .mt-root {
   height: 100dvh;
-  overflow: hidden;
+  overflow: clip; /* prevents layout-viewport expansion without creating a scroll container */
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -1467,6 +1482,7 @@ tbody tr:hover { background: #FDFCFA; }
   border-radius: 20px 20px 0 0;
   width: 100%;
   max-height: 90dvh;
+  overflow-x: hidden;
   overflow-y: auto;
   padding-bottom: env(safe-area-inset-bottom, 16px);
 }
@@ -1560,6 +1576,38 @@ tbody tr:hover { background: #FDFCFA; }
 .mt-save-btn:hover:not(:disabled) { opacity: 0.88; }
 .mt-save-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
+/* ── Allocation summary (inside Add / Edit Project Hours sheet) ───────────── */
+.ph-alloc-summary {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  background: var(--color-grey-50);
+  border: 1px solid var(--color-grey-200);
+  border-radius: 8px;
+}
+.ph-alloc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2px 0;
+}
+.ph-alloc-row--divider {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--color-grey-200);
+}
+.ph-alloc-label {
+  font-size: 0.75rem;
+  color: var(--color-grey-600);
+}
+.ph-alloc-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-grey-700);
+}
+.ph-alloc-over {
+  color: #c2570a;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    SPRINT 4 — EXTRAS MODULE
    ══════════════════════════════════════════════════════════════════════════════ */
@@ -1601,6 +1649,10 @@ tbody tr:hover { background: #FDFCFA; }
 .ex-status-processed {
   background: rgba(107, 114, 128, 0.12);
   color: #374151;
+}
+.ex-status-waiting {
+  background: rgba(59, 130, 246, 0.10);
+  color: #1d4ed8;
 }
 .ex-status-recorded {
   background: rgba(14, 165, 233, 0.10);
@@ -1824,6 +1876,47 @@ tbody tr:hover { background: #FDFCFA; }
   color: var(--color-grey-700);
 }
 
+.ex-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.ex-reviewed-badge {
+  font-size: 0.75rem;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.ex-reviewed-btn {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.ex-reviewed-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.ex-comment-count {
+  background: none;
+  border: 1px solid var(--color-grey-200);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-grey-600);
+}
+.ex-comment-count:hover {
+  background: var(--color-grey-100);
+  color: var(--color-charcoal);
+}
+
 /* ── Open extras count badge (project / employee list) ───────────────────────── */
 .ex-count-badge {
   display: inline-flex;
@@ -1958,4 +2051,1101 @@ tbody tr:hover { background: #FDFCFA; }
   border-radius: 8px;
   font-size: 0.8125rem;
   cursor: pointer;
+}
+
+/* ── Operations Dashboard (Sprint 5) ─────────────────────────────────────── */
+.od-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.od-card-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.od-week-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.od-week-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-charcoal);
+  white-space: nowrap;
+  padding: 0 0.25rem;
+}
+.od-week-nav {
+  font-size: 0.8125rem !important;
+  padding: 0.375rem 0.75rem !important;
+  white-space: nowrap;
+}
+.od-empty-ok {
+  color: var(--color-grey-500);
+  font-style: normal;
+}
+.od-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-grey-200);
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.od-card-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-grey-600);
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+}
+.od-card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+  line-height: 1.1;
+}
+.od-card-value-small {
+  font-size: 1rem;
+}
+.od-card-sub {
+  font-size: 0.75rem;
+  color: var(--color-grey-500);
+  margin-top: 0.25rem;
+}
+.od-card-accent-green  { border-left: 3px solid #16a34a; }
+.od-card-accent-blue   { border-left: 3px solid #1d4ed8; }
+.od-card-accent-amber  { border-left: 3px solid #d97706; }
+.od-card-accent-grey   { border-left: 3px solid var(--color-grey-300); }
+
+.od-section {
+  margin-bottom: 2rem;
+}
+.od-section-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  margin: 0 0 1rem 0;
+}
+
+.od-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.od-table th {
+  text-align: left;
+  color: var(--color-grey-600);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-grey-200);
+  background: var(--color-grey-50);
+  white-space: nowrap;
+}
+.od-table td {
+  padding: 0.625rem 1rem;
+  border-bottom: 1px solid var(--color-grey-200);
+  font-size: 0.875rem;
+  color: var(--color-charcoal);
+}
+.od-table tr:last-child td { border-bottom: none; }
+.od-table tr:hover td { background: var(--color-grey-50); }
+
+.od-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.od-badge-green { background: #dcfce7; color: #16a34a; }
+.od-badge-blue  { background: #dbeafe; color: #1d4ed8; }
+.od-badge-amber { background: #fef3c7; color: #d97706; }
+.od-badge-red   { background: #fee2e2; color: #dc2626; }
+.od-badge-grey  { background: #f3f4f6; color: #6b7280; }
+
+.od-alert-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+.od-alert-amber { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.od-alert-red   { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.od-alert-blue  { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+
+.od-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-grey-100);
+}
+.od-activity-item:last-child { border-bottom: none; }
+
+.od-empty {
+  text-align: center;
+  color: var(--color-grey-500);
+  padding: 2rem;
+  font-style: italic;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .od-card-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .od-card-grid { grid-template-columns: 1fr; }
+}
+
+/* ── My Day screen (Sprint 6.1) ─────────────────────────────────────────────── */
+.md-attendance-card,
+.md-section-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.md-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.md-section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-grey-400);
+}
+
+.md-attendance-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.md-time-range {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+  letter-spacing: 0.02em;
+}
+
+.md-duration {
+  font-size: 0.9rem;
+  color: var(--color-grey-500);
+}
+
+/* ── WeekNavigator ─────────────────────────────────────────────────────────── */
+
+.week-nav {
+  display: inline-flex;
+  align-items: stretch;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.week-nav-btn {
+  width: 40px;
+  border: 1.5px solid var(--color-grey-200);
+  background: #fff;
+  color: var(--color-grey-600);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  padding: 0;
+}
+
+.week-nav-btn:first-child {
+  border-radius: 6px 0 0 6px;
+  border-right: none;
+}
+
+.week-nav-btn:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.week-nav-btn:hover {
+  border-color: var(--color-gold);
+  color: var(--color-charcoal);
+  background: rgba(200, 164, 106, 0.08);
+}
+
+.week-nav-label {
+  padding: 0 1rem;
+  border-top: 1.5px solid var(--color-grey-200);
+  border-bottom: 1.5px solid var(--color-grey-200);
+  background: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  min-width: 200px;
+  user-select: none;
+}
+
+/* Row that hosts WeekNavigator below a toolbar */
+.week-nav-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+/* ── Extra comment timeline ────────────────────────────────────────────────── */
+
+.ex-timeline {
+  margin: 0 0 1.25rem;
+  padding: 0;
+}
+
+.ex-timeline-item {
+  display: flex;
+  flex-direction: column;
+  padding: 0.625rem 0.75rem;
+  border-left: 2px solid var(--color-border);
+  margin-left: 0.375rem;
+  margin-bottom: 0.625rem;
+  position: relative;
+}
+
+.ex-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 0.875rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-grey-300);
+  border: 1.5px solid #fff;
+}
+
+.ex-timeline-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.2rem;
+}
+
+.ex-timeline-author {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+}
+
+.ex-timeline-type {
+  font-size: 0.75rem;
+  color: var(--color-grey-500);
+}
+
+.ex-timeline-date {
+  font-size: 0.75rem;
+  color: var(--color-grey-400);
+  margin-left: auto;
+}
+
+.ex-timeline-text {
+  font-size: 0.875rem;
+  color: var(--color-grey-700);
+  white-space: pre-wrap;
+  margin-top: 0.25rem;
+}
+
+/* ── Timesheet Matrix Modal (Sprint 6.4) ─────────────────────────────────── */
+.tm-modal {
+  max-width: min(92vw, 1100px);
+  width: 92vw;
+}
+.tm-period-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.tm-period-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-grey-800);
+}
+.tm-nav-btn {
+  padding: 0.3rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+  white-space: nowrap;
+}
+.tm-stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.tm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.tm-stat-label {
+  font-size: 0.75rem;
+  color: var(--color-grey-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tm-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-grey-900);
+}
+.tm-empty {
+  color: var(--color-grey-400);
+  text-align: center;
+  padding: 2rem;
+}
+.tm-scroll {
+  overflow-x: auto;
+  margin: 0 -1.5rem;
+  padding: 0 1.5rem 0.5rem;
+}
+.tm-table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 0.875rem;
+}
+.tm-table th,
+.tm-table td {
+  padding: 0.4rem 0.75rem;
+  white-space: nowrap;
+  border: 1px solid var(--color-border);
+}
+.tm-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--color-bg);
+}
+.tm-col-name {
+  min-width: 160px;
+  text-align: left;
+}
+.tm-table thead th {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+.tm-table thead .tm-sticky-col {
+  background: var(--color-surface);
+}
+.tm-col-week {
+  text-align: right;
+  min-width: 60px;
+}
+.tm-col-total {
+  text-align: right;
+  min-width: 64px;
+}
+.tm-cell-hours {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tm-cell-empty {
+  text-align: right;
+  color: var(--color-grey-300);
+}
+.tm-cell-total {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.tm-totals-row td {
+  font-weight: 700;
+  background: var(--color-surface);
+  border-top: 2px solid var(--color-border);
+}
+.tm-totals-row .tm-sticky-col {
+  background: var(--color-surface);
+}
+
+/* ── Employee Timesheet Full Page (Sprint 6.4 redesign) ──────────────────── */
+.ts-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+}
+
+.ts-back {
+  margin-bottom: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.ts-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.ts-header-info {
+  min-width: 0;
+}
+
+.ts-name {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+  margin: 0 0 0.4rem;
+  line-height: 1.2;
+}
+
+.ts-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.ts-meta-chip {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  background: var(--color-grey-50);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--color-grey-700);
+}
+
+.ts-meta-role {
+  text-transform: capitalize;
+  background: var(--color-gold-bg);
+  border-color: rgba(200,164,106,0.3);
+  color: var(--color-gold);
+}
+
+.ts-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.ts-period {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-charcoal);
+  min-width: 160px;
+  text-align: center;
+}
+
+.ts-nav-btn {
+  padding: 0.3rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+  white-space: nowrap;
+}
+
+/* Stats bar */
+.ts-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ts-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+}
+
+.ts-stat-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--color-border);
+}
+
+.ts-stat-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-charcoal);
+  line-height: 1.2;
+}
+
+.ts-stat-label {
+  font-size: 0.75rem;
+  color: var(--color-grey-500);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+
+.ts-loading {
+  display: flex;
+  justify-content: center;
+  padding: 3rem;
+}
+
+/* Main table */
+.ts-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.ts-table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 0.8125rem;
+  table-layout: auto;
+}
+
+/* Header row */
+.ts-table thead tr {
+  background: var(--color-grey-50);
+  border-bottom: 2px solid var(--color-border);
+}
+
+.ts-th-project {
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-grey-600);
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--color-grey-50);
+  min-width: 200px;
+  border-right: 2px solid var(--color-border);
+}
+
+.ts-th-week {
+  text-align: center;
+  padding: 0.375rem 0.5rem;
+  min-width: 52px;
+  border-left: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.ts-week-num {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--color-charcoal);
+}
+
+.ts-week-date {
+  font-size: 0.6875rem;
+  color: var(--color-grey-400);
+  margin-top: 0.1rem;
+}
+
+.ts-th-total {
+  text-align: right;
+  padding: 0.375rem 0.75rem;
+  min-width: 64px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-grey-600);
+  border-left: 2px solid var(--color-border);
+}
+
+/* Body rows */
+.ts-table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background 0.1s;
+}
+.ts-table tbody tr:hover {
+  background: rgba(200,164,106,0.04);
+}
+.ts-table tbody tr:last-child {
+  border-bottom: none;
+}
+.ts-row-open {
+  background: rgba(200,164,106,0.06) !important;
+}
+
+.ts-td-project {
+  padding: 0.5rem 0.875rem;
+  position: sticky;
+  left: 0;
+  background: var(--color-bg);
+  z-index: 2;
+  border-right: 2px solid var(--color-border);
+  min-width: 200px;
+}
+.ts-row-open .ts-td-project {
+  background: rgba(200,164,106,0.06);
+}
+.ts-table tbody tr:hover .ts-td-project {
+  background: rgba(200,164,106,0.04);
+}
+
+.ts-project-name {
+  display: block;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.ts-project-code {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--color-grey-400);
+  margin-top: 0.1rem;
+}
+
+/* Data cells */
+.ts-td-cell {
+  text-align: center;
+  padding: 0.4rem 0.375rem;
+  border-left: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+  transition: background 0.1s;
+}
+
+.ts-cell-clickable {
+  cursor: pointer;
+}
+.ts-cell-clickable:hover {
+  background: rgba(200,164,106,0.15) !important;
+}
+
+.ts-cell-value {
+  color: var(--color-charcoal);
+}
+
+.ts-cell-empty {
+  color: var(--color-grey-200);
+}
+
+.ts-cell-open {
+  background: rgba(200,164,106,0.2) !important;
+  outline: 2px solid var(--color-gold);
+  outline-offset: -2px;
+}
+
+.ts-dash {
+  font-size: 0.75rem;
+  color: var(--color-grey-200);
+}
+
+/* Heat-map backgrounds for cells */
+.ts-heat-1 { background: rgba(200,164,106,0.08); }
+.ts-heat-2 { background: rgba(200,164,106,0.18); }
+.ts-heat-3 { background: rgba(200,164,106,0.30); }
+.ts-heat-4 { background: rgba(200,164,106,0.45); }
+
+/* Row total column */
+.ts-td-row-total {
+  text-align: right;
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-charcoal);
+  border-left: 2px solid var(--color-border);
+  background: var(--color-grey-50);
+  white-space: nowrap;
+}
+
+/* Footer / totals row */
+.ts-footer-row {
+  background: var(--color-grey-50) !important;
+  border-top: 2px solid var(--color-border) !important;
+}
+.ts-footer-row td {
+  border-bottom: none !important;
+}
+
+.ts-footer-label {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-grey-600);
+  background: var(--color-grey-50) !important;
+}
+
+.ts-footer-cell {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--color-charcoal);
+  background: var(--color-grey-50);
+}
+
+/* Heat for totals row */
+.ts-total-low { background: rgba(34,197,94,0.08) !important; color: #166534 !important; }
+.ts-total-mid { background: rgba(200,164,106,0.15) !important; }
+.ts-total-hi  { background: rgba(245,158,11,0.25) !important; color: #92400e !important; }
+
+.ts-footer-grand {
+  font-weight: 700;
+  background: var(--color-grey-50) !important;
+}
+
+.ts-empty-row {
+  text-align: center;
+  padding: 2.5rem;
+  color: var(--color-grey-400);
+  font-size: 0.875rem;
+}
+
+/* Drilldown panel */
+.ts-drilldown {
+  margin-top: 1rem;
+  border: 1px solid var(--color-gold);
+  border-radius: 8px;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.ts-drilldown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--color-gold-bg);
+  border-bottom: 1px solid rgba(200,164,106,0.3);
+}
+
+.ts-drilldown-project {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-charcoal);
+}
+
+.ts-drilldown-week {
+  font-size: 0.8125rem;
+  color: var(--color-grey-500);
+  margin-left: 0.75rem;
+}
+
+.ts-drilldown-loading,
+.ts-drilldown-empty {
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--color-grey-500);
+  font-size: 0.875rem;
+}
+
+.ts-drilldown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.ts-drilldown-table th {
+  text-align: left;
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-grey-500);
+  border-bottom: 1px solid var(--color-border);
+}
+.ts-drilldown-table td {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.ts-drilldown-table tr:last-child td { border-bottom: none; }
+
+.ts-drilldown-day  { font-weight: 600; color: var(--color-charcoal); width: 48px; }
+.ts-drilldown-date { color: var(--color-grey-500); font-size: 0.8125rem; }
+.ts-drilldown-hours { font-weight: 700; color: var(--color-charcoal); text-align: right; }
+.ts-drilldown-note { color: var(--color-grey-600); font-size: 0.8125rem; }
+
+/* ── Invoice Status — Sprint 10 ─────────────────────────────────────────────── */
+.ts-th-week-invoiced {
+  background: rgba(22, 163, 74, 0.05);
+}
+
+.ts-week-menu-wrap {
+  position: relative;
+}
+
+.ts-th-week-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  display: block;
+  border-radius: 4px;
+}
+.ts-th-week-btn:hover {
+  background: var(--color-grey-50);
+}
+
+.ts-invoice-check {
+  color: #16a34a;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  margin-right: 0.0625rem;
+}
+
+.ts-th-week-invoiced .ts-week-num {
+  color: #16a34a;
+}
+
+.ts-week-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.ts-week-menu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 186px;
+  padding: 0.25rem;
+}
+
+.ts-week-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-charcoal);
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.ts-week-menu-item:hover {
+  background: var(--color-grey-50);
+}
+.ts-week-menu-remove {
+  color: #dc2626;
+}
+.ts-week-menu-remove:hover {
+  background: rgba(220, 38, 38, 0.06);
+}
+
+/* ── Billing Horizon strip (Sprint 10.1) ─────────────────────────────────────── */
+.bh-strip {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.bh-week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.bh-label {
+  font-size: 0.625rem;
+  color: var(--color-grey-400);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.bh-marker {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  padding: 0;
+  font-family: inherit;
+}
+.bh-marker:hover {
+  opacity: 0.75;
+}
+
+.bh-invoiced {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.35);
+  color: #15803d;
+}
+
+.bh-pending {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #92660a;
+}
+
+.bh-none {
+  background: var(--color-grey-50);
+  border-color: var(--color-border);
+  color: var(--color-grey-400);
+}
+
+/* ── Toast notifications (Sprint 11) ────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: calc(100vw - 2.5rem);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+  pointer-events: auto;
+  animation: toast-in 0.2s ease;
+  min-width: 220px;
+}
+
+.toast-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
+.toast-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.toast-info {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .toast-success { background: #052e16; border-color: #166534; color: #86efac; }
+  .toast-error   { background: #2d0a0a; border-color: #7f1d1d; color: #fca5a5; }
+  .toast-info    { background: #0c1a2e; border-color: #1e3a5f; color: #7dd3fc; }
+}
+
+.toast-msg {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  padding: 0;
+  color: inherit;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.toast-close:hover { opacity: 1; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Employee workspace sections (Sprint 10.1) ──────────────────────────────── */
+.emp-section {
+  border-top: 1px solid var(--color-border);
+  padding: 2rem 1.5rem 1.5rem;
+}
+
+.emp-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.emp-section-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-charcoal);
+}
+
+.emp-week-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.emp-week-btn {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.625rem;
+}
+
+.emp-week-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  min-width: 200px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .emp-section { padding: 1.25rem 1rem 1rem; }
+  .emp-section-header { flex-direction: column; align-items: flex-start; }
+  .emp-week-label { min-width: 0; }
 }

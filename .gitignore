@@ -5,3 +5,5 @@ dist/
 *.local
 .env
 .env.*
+worker/.dev.vars
+*.dev.vars

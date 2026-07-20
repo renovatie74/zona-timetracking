@@ -8,6 +8,11 @@ import * as timeEntryRoutes   from './routes/time_entries.js';
 import * as myTimeRoutes      from './routes/my_time.js';
 import * as extrasRoutes      from './routes/extras.js';
 import * as mileageRoutes     from './routes/mileage.js';
+import * as dashboardRoutes      from './routes/dashboard.js';
+import * as adminConsoleRoutes   from './routes/admin_console.js';
+import * as exportRoutes          from './routes/export.js';
+import * as myDayRoutes          from './routes/my_day.js';
+import * as attendanceRoutes     from './routes/attendance.js';
 
 export const router = Router();
 
@@ -39,12 +44,20 @@ router.put(   '/api/teams/:id', teamRoutes.update);
 router.delete('/api/teams/:id', teamRoutes.remove);
 
 // ── Employee routes (Sprint 2) ────────────────────────────────────────────────
-router.get(   '/api/employees',                 employeeRoutes.list);
-router.get(   '/api/employees/:id',             employeeRoutes.get);
-router.post(  '/api/employees',                 employeeRoutes.create);
-router.post(  '/api/employees/:id/reactivate',  employeeRoutes.reactivate);
-router.put(   '/api/employees/:id',             employeeRoutes.update);
-router.delete('/api/employees/:id',             employeeRoutes.remove);
+router.get(   '/api/employees',                          employeeRoutes.list);
+router.get(   '/api/employees/:id',                      employeeRoutes.get);
+router.post(  '/api/employees',                          employeeRoutes.create);
+router.post(  '/api/employees/:id/reactivate',           employeeRoutes.reactivate);
+router.post(  '/api/employees/:id/activate',             employeeRoutes.activate);
+router.post(  '/api/employees/:id/resend-activation',    employeeRoutes.resendActivation);
+router.post(  '/api/employees/:id/generate-password',    employeeRoutes.generatePasswordForUser);
+router.get(   '/api/employees/:id/weekly-hours',         employeeRoutes.weeklyHours);
+router.get(   '/api/employees/:id/timesheet-matrix',     employeeRoutes.timesheetMatrix);
+router.get(   '/api/employees/:id/hours-by-day',         employeeRoutes.hoursByDay);
+router.get(   '/api/employees/:id/assignments',          employeeRoutes.listProjectAssignments);
+router.put(   '/api/employees/:id/assignments',          employeeRoutes.setProjectAssignments);
+router.put(   '/api/employees/:id',                      employeeRoutes.update);
+router.delete('/api/employees/:id',                      employeeRoutes.remove);
 
 // ── Client routes (Sprint 2.1) ────────────────────────────────────────────────
 router.get(   '/api/clients',     clientRoutes.list);
@@ -55,6 +68,7 @@ router.delete('/api/clients/:id', clientRoutes.remove);
 
 // ── Project routes (Sprint 2 + 3A assignments) ───────────────────────────────
 router.get(   '/api/projects/mine',               projectRoutes.mine);
+router.get(   '/api/projects/billing-horizon',    projectRoutes.billingHorizon);
 router.get(   '/api/projects',                    projectRoutes.list);
 router.get(   '/api/projects/:id',                projectRoutes.get);
 router.post(  '/api/projects',                    projectRoutes.create);
@@ -62,6 +76,9 @@ router.put(   '/api/projects/:id',                projectRoutes.update);
 router.delete('/api/projects/:id',                projectRoutes.remove);
 router.get(   '/api/projects/:id/assignments',    projectRoutes.listAssignments);
 router.put(   '/api/projects/:id/assignments',    projectRoutes.setAssignments);
+router.get(   '/api/projects/:id/weekly-hours',        projectRoutes.weeklyHours);
+router.get(   '/api/projects/:id/timesheet-matrix',    projectRoutes.timesheetMatrix);
+router.put(   '/api/projects/:id/invoice-status',      projectRoutes.setInvoiceStatus);
 
 // ── Time entry routes (Sprint 3A — manual CRUD) ───────────────────────────────
 router.get(   '/api/time-entries',      timeEntryRoutes.list);
@@ -77,6 +94,15 @@ router.post('/api/time-entries/checkin',   timeEntryRoutes.checkin);
 router.post('/api/time-entries/checkout',  timeEntryRoutes.checkout);
 router.post('/api/time-entries/discard',   timeEntryRoutes.discard);
 
+// ── My Day routes (Sprint 6 — daily attendance + project hours) ──────────────
+// Specific sub-paths must precede /:id to avoid capture
+router.get(   '/api/my-day/week',                myDayRoutes.getWeek);
+router.get(   '/api/my-day',                     myDayRoutes.getDay);
+router.put(   '/api/my-day/attendance',          myDayRoutes.putAttendance);
+router.post(  '/api/my-day/project-hours',       myDayRoutes.createProjectHours);
+router.put(   '/api/my-day/project-hours/:id',   myDayRoutes.updateProjectHours);
+router.delete('/api/my-day/project-hours/:id',   myDayRoutes.deleteProjectHours);
+
 // ── My Time routes (Sprint 3C — employee timesheet) ──────────────────────────
 router.get(   '/api/my-time',      myTimeRoutes.myTime);
 router.post(  '/api/my-time',      myTimeRoutes.createMyEntry);
@@ -90,20 +116,28 @@ router.post(  '/api/extras/mine',         extrasRoutes.createMine);
 router.put(   '/api/extras/mine/:id',     extrasRoutes.updateMine);
 router.delete('/api/extras/mine/:id',     extrasRoutes.deleteMine);
 // Admin/manager endpoints
-router.get(   '/api/extras',              extrasRoutes.list);
-router.post(  '/api/extras',              extrasRoutes.create);
-router.post(  '/api/extras/:id/process',  extrasRoutes.process);
-router.post(  '/api/extras/:id/reopen',   extrasRoutes.reopen);
-router.put(   '/api/extras/:id',          extrasRoutes.update);
-router.delete('/api/extras/:id',          extrasRoutes.remove);
+router.get(   '/api/extras/summary',               extrasRoutes.summary);
+router.get(   '/api/extras',                       extrasRoutes.list);
+router.post(  '/api/extras',                       extrasRoutes.create);
+router.get(   '/api/extras/:id',                   extrasRoutes.getOne);
+router.post(  '/api/extras/:id/complete',          extrasRoutes.complete);
+router.post(  '/api/extras/:id/request-review',    extrasRoutes.requestReview);
+router.post(  '/api/extras/:id/manager-reply',     extrasRoutes.managerReply);
+router.post(  '/api/extras/:id/process',           extrasRoutes.process);
+router.post(  '/api/extras/:id/reopen',            extrasRoutes.reopen);
+router.put(   '/api/extras/:id',                   extrasRoutes.update);
+router.delete('/api/extras/:id',                   extrasRoutes.remove);
 
-// ── Weekly Mileage routes (Sprint 4.2) ───────────────────────────────────────
+// ── Mileage routes (Sprint 12 — per-entry model) ─────────────────────────────
 // Employee self-service
-router.get('/api/my-mileage',                    mileageRoutes.listMyMileage);
-router.put('/api/my-mileage',                    mileageRoutes.upsertMyMileage);
+router.get(   '/api/my-mileage',        mileageRoutes.listMyMileage);
+router.post(  '/api/my-mileage',        mileageRoutes.createMyMileage);
+router.put(   '/api/my-mileage/:id',    mileageRoutes.updateMyMileage);
+router.delete('/api/my-mileage/:id',    mileageRoutes.deleteMyMileage);
 // Admin/manager
-router.get('/api/mileage',                       mileageRoutes.listMileage);
-router.put('/api/mileage/:user_id/:week_start',  mileageRoutes.upsertMileageAdmin);
+router.get( '/api/mileage',              mileageRoutes.listMileage);
+router.post('/api/mileage/:id/reopen',   mileageRoutes.reopenMileage);
+router.post('/api/mileage/:id/complete', mileageRoutes.completeMileage);
 
 // ── Note routes (Sprint 4+) ───────────────────────────────────────────────────
 // router.get('/api/project-notes',       noteRoutes.list);
@@ -112,7 +146,27 @@ router.put('/api/mileage/:user_id/:week_start',  mileageRoutes.upsertMileageAdmi
 // router.get('/api/note-categories',     noteRoutes.categories);
 // router.get('/api/recent-projects',     noteRoutes.recentProjects);
 
-// ── Dashboard routes (Sprint 5) ───────────────────────────────────────────────
+// ── Attendance routes (DailyAttendance admin view) ───────────────────────────
+router.get(   '/api/attendance',     attendanceRoutes.list);
+router.post(  '/api/attendance',     attendanceRoutes.create);
+router.put(   '/api/attendance/:id', attendanceRoutes.update);
+router.delete('/api/attendance/:id', attendanceRoutes.remove);
+
+// ── Dashboard routes (Sprint 5 / Sprint 8) ───────────────────────────────────
+// Specific sub-paths before /operations to avoid any future catch-all issues
+router.get('/api/dashboard/missing-timesheets', dashboardRoutes.missingTimesheets);
+router.get('/api/dashboard/operations',         dashboardRoutes.operations);
+
+// ── Admin Console routes (Sprint 5.5 / 5.5.1) ───────────────────────────────
+router.get('/api/admin-console/users',       adminConsoleRoutes.users);
+router.get('/api/admin-console/login-audit', adminConsoleRoutes.loginAudit);
+router.get('/api/admin-console/admin-audit', adminConsoleRoutes.adminAudit);
+
+// ── Export routes (Sprint 9) ─────────────────────────────────────────────────
+// Specific sub-paths must precede any future /:id routes
+router.get( '/api/admin-console/export/xlsx', exportRoutes.downloadXlsx);
+router.get( '/api/admin-console/export/csv',  exportRoutes.downloadCsv);
+router.post('/api/admin-console/export',      exportRoutes.generateExport);
 // router.get('/api/dashboard/live',           dashboardRoutes.live);
 // router.get('/api/dashboard/management',     dashboardRoutes.management);
 // router.get('/api/dashboard/billable-items', dashboardRoutes.billableItems);

@@ -133,14 +133,13 @@ describe('TC-4.1-D: Valid Extra types', () => {
     expect(body.data.type).toBe('own_cost');
   });
 
-  it('TC-4.1-D02: extra_work is a valid type for employee create', async () => {
+  it('TC-4.1-D02: extra_work cannot be created (legacy only)', async () => {
     const req = makeRequest('POST', '/api/extras/mine',
       { project_id: projectId, type: 'extra_work', description: 'Weekend work' },
       worker.cookie);
     const res = await extrasRoutes.createMine(req, env);
-    expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.data.type).toBe('extra_work');
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/cannot create/i);
   });
 
 });
@@ -167,7 +166,7 @@ describe('TC-4.1-V: Mileage removed from Extras (Sprint 4.2)', () => {
     const res = await extrasRoutes.create(req, env);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/invalid type/i);
+    expect(body.error).toMatch(/cannot create/i);
   });
 
   it('TC-4.1-V03: own_cost still requires description', async () => {
@@ -180,14 +179,14 @@ describe('TC-4.1-V: Mileage removed from Extras (Sprint 4.2)', () => {
     expect(body.error).toMatch(/description/i);
   });
 
-  it('TC-4.1-V04: extra_work still requires description', async () => {
+  it('TC-4.1-V04: extra_work cannot be created (returns 400 cannot create)', async () => {
     const req = makeRequest('POST', '/api/extras/mine',
       { project_id: projectId, type: 'extra_work' },
       worker.cookie);
     const res = await extrasRoutes.createMine(req, env);
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toMatch(/description/i);
+    expect(body.error).toMatch(/cannot create/i);
   });
 
   it('TC-4.1-V05: unknown type rejected', async () => {
@@ -205,14 +204,14 @@ describe('TC-4.1-A: Admin process/reopen workflow', () => {
 
   let entryId;
 
-  it('TC-4.1-A01: admin can create extra_work entry', async () => {
+  it('TC-4.1-A01: admin can create own_cost entry', async () => {
     const req = makeRequest('POST', '/api/extras',
-      { user_id: worker.id, project_id: projectId, type: 'extra_work', description: 'Extra shift' },
+      { user_id: worker.id, project_id: projectId, type: 'own_cost', description: 'Extra shift' },
       admin.cookie);
     const res = await extrasRoutes.create(req, env);
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.data.type).toBe('extra_work');
+    expect(body.data.type).toBe('own_cost');
     entryId = body.data.id;
   });
 

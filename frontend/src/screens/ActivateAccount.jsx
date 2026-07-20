@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../auth.jsx';
 import { api } from '../api.js';
 import PasswordInput from '../components/PasswordInput.jsx';
 
 export default function ActivateAccount() {
   const [params]              = useSearchParams();
   const navigate              = useNavigate();
-  const { setUser }           = useAuth();
   const token                 = params.get('token') ?? '';
 
   const [password,  setPassword]  = useState('');
@@ -30,9 +28,8 @@ export default function ActivateAccount() {
 
     setLoading(true);
     try {
-      const user = await api.post('/api/auth/activate-account', { token, password });
-      setUser(user);
-      navigate('/dashboard', { replace: true });
+      await api.post('/api/auth/activate-account', { token, password });
+      navigate('/login?activated=1', { replace: true });
     } catch (err) {
       setError(err.message ?? 'Something went wrong. Please try again.');
     } finally {

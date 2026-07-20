@@ -1,19 +1,33 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth }     from '../auth.jsx';
-import { api }         from '../api.js';
-import AppShell        from './AppShell.jsx';
-import PhoneInput      from '../components/PhoneInput.jsx';
+import { useState, useEffect } from 'react';
+import { useNavigate, useBlocker } from 'react-router-dom';
+import { useAuth }         from '../auth.jsx';
+import { api }             from '../api.js';
+import AppShell            from './AppShell.jsx';
+import EmployeeNav         from '../components/EmployeeNav.jsx';
+import PhoneInput          from '../components/PhoneInput.jsx';
+import { useToast }        from '../hooks/useToast.jsx';
+import { useBeforeUnload } from '../hooks/useBeforeUnload.js';
 
 export default function Profile() {
   const { user, logout, setUser } = useAuth();
   const navigate                  = useNavigate();
+  const { toast }                 = useToast();
 
   const [editing, setEditing] = useState(false);
   const [form,    setForm]    = useState({ first_name: '', last_name: '', phone: '' });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState('');
-  const [success, setSuccess] = useState('');
+
+  useBeforeUnload(editing);
+  const blocker = useBlocker(editing);
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    if (window.confirm('You have unsaved changes. Leave anyway?')) {
+      blocker.proceed();
+    } else {
+      blocker.reset();
+    }
+  }, [blocker]);
 
   function startEdit() {
     setForm({
@@ -22,7 +36,6 @@ export default function Profile() {
       phone:      user?.phone      ?? '',
     });
     setError('');
-    setSuccess('');
     setEditing(true);
   }
 
@@ -35,7 +48,6 @@ export default function Profile() {
     e.preventDefault();
     setSaving(true);
     setError('');
-    setSuccess('');
     try {
       const data = await api.patch('/api/profile', {
         first_name: form.first_name.trim(),
@@ -44,7 +56,7 @@ export default function Profile() {
       });
       setUser({ ...user, first_name: data.first_name, last_name: data.last_name, name: data.name, phone: data.phone });
       setEditing(false);
-      setSuccess('Profile updated.');
+      toast('Profile updated.');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -59,6 +71,46 @@ export default function Profile() {
 
   const displayName = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.name : '';
 
+  if (user?.role === 'employee') {
+    return (
+      <div className="mt-root">
+        <div className="mt-screen" style={{ padding: '1.25rem 1rem 5rem' }}>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Account</h1>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
+            {[
+              ['Name',  displayName || '—'],
+              ['Email', user?.email  ?? '—'],
+              ['Role',  user?.role   ?? '—'],
+              ['Phone', user?.phone  ?? '—'],
+            ].map(([label, value]) => (
+              <div key={label} style={{ background: 'var(--color-surface,#fff)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em', color: 'var(--color-grey-500)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{label}</div>
+                <div style={{ fontWeight: 500, textTransform: label === 'Role' ? 'capitalize' : undefined }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <a
+              href="/change-password"
+              style={{ display: 'block', textAlign: 'center', padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: '10px', fontWeight: 500, color: 'var(--color-charcoal)', textDecoration: 'none', background: 'var(--color-surface,#fff)' }}
+            >
+              Change Password
+            </a>
+            <button
+              onClick={handleLogout}
+              style={{ padding: '0.75rem', border: '1px solid var(--color-red,#d93025)', borderRadius: '10px', fontWeight: 500, color: 'var(--color-red,#d93025)', background: 'transparent', cursor: 'pointer' }}
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <EmployeeNav />
+      </div>
+    );
+  }
+
   return (
     <AppShell title="Profile">
       <div className="page">
@@ -68,14 +120,6 @@ export default function Profile() {
             <button className="btn btn-outline" onClick={startEdit}>Edit</button>
           )}
         </div>
-
-        {success && (
-          <div style={{ marginBottom: '1rem', padding: '0.625rem 1rem',
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
-            borderRadius: '6px', color: 'var(--color-green)', fontSize: '0.9rem' }}>
-            {success}
-          </div>
-        )}
 
         {editing ? (
           <form onSubmit={handleSave} style={{ maxWidth: 480 }}>

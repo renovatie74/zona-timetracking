@@ -132,13 +132,13 @@ it('TC-4-E01: employee can create own Extra (201)', async () => {
   const cook = await cookieFor(uid, 'employee');
 
   const req  = makeRequest('POST', '/api/extras/mine',
-    { project_id: pid, type: 'extra_work', description: 'Worked extra hours on site' }, cook);
+    { project_id: pid, type: 'own_cost', description: 'Worked extra hours on site' }, cook);
   req.params = {};
   const res  = await extrasRoutes.createMine(req, env);
   const body = await res.json();
 
   expect(res.status).toBe(201);
-  expect(body.data.type).toBe('extra_work');
+  expect(body.data.type).toBe('own_cost');
   expect(body.data.status).toBe('open');
   expect(body.data.description).toBe('Worked extra hours on site');
 });

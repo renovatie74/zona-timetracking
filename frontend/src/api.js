@@ -33,6 +33,9 @@ async function request(method, path, body) {
   const json = await res.json().catch(() => ({ error: 'Unexpected response from server' }));
 
   if (!res.ok) {
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent('session:expired'));
+    }
     throw new ApiError(res.status, json.error ?? 'An error occurred');
   }
 

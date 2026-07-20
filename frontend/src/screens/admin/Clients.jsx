@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useNavigate }         from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
 import { api }                 from '../../api.js';
 import { useAuth }             from '../../auth.jsx';
 import AppShell                from '../AppShell.jsx';
 import PhoneInput              from '../../components/PhoneInput.jsx';
+import { useToast }            from '../../hooks/useToast.jsx';
+import { useDebounce }         from '../../hooks/useDebounce.js';
 
 const EMPTY = { name: '', contact_person: '', phone: '', email: '', notes: '' };
 
 export default function Clients() {
   const { user }   = useAuth();
-  const navigate   = useNavigate();
+  const { toast }  = useToast();
   const isAdmin    = user?.role === 'administrator';
 
   const [items,        setItems]        = useState([]);
@@ -24,6 +25,8 @@ export default function Clients() {
 
   useEffect(() => { load('', ''); }, []);  // eslint-disable-line
 
+  const debouncedLoad = useDebounce(load, 300);
+
   async function load(q, sf) {
     setLoading(true);
     setError('');
@@ -35,7 +38,6 @@ export default function Clients() {
       const data = await api.get('/api/clients' + (qs ? `?${qs}` : ''));
       setItems(data);
     } catch (e) {
-      if (e.status === 401) navigate('/login', { replace: true });
       setError(e.message);
     } finally {
       setLoading(false);
@@ -45,7 +47,7 @@ export default function Clients() {
   function handleSearchChange(e) {
     const q = e.target.value;
     setSearch(q);
-    load(q, statusFilter);
+    debouncedLoad(q, statusFilter);
   }
 
   function handleStatusFilter(e) {
@@ -53,6 +55,16 @@ export default function Clients() {
     setStatusFilter(sf);
     load(search, sf);
   }
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== 'Escape') return;
+      if (confirm) { setConfirm(null); return; }
+      if (modal)   { setModal(null);   return; }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modal, confirm]);
 
   function openCreate() {
     setForm(EMPTY);
@@ -86,8 +98,10 @@ export default function Clients() {
       };
       if (modal.mode === 'create') {
         await api.post('/api/clients', body);
+        toast('Client created.');
       } else {
         await api.put(`/api/clients/${modal.id}`, body);
+        toast('Client updated.');
       }
       setModal(null);
       load(search, statusFilter);
@@ -103,6 +117,7 @@ export default function Clients() {
     setSaving(true);
     try {
       await api.delete(`/api/clients/${confirm.id}`);
+      toast('Client deactivated.');
       setConfirm(null);
       setModal(null);
       load(search, statusFilter);
