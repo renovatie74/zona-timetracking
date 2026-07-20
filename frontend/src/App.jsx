@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { useEffect } from 'react';
 import { AuthProvider, useAuth }                  from './auth.jsx';
 import { ToastProvider } from './hooks/useToast.jsx';
+import DevBanner from './components/DevBanner.jsx';
 import Login           from './screens/Login.jsx';
 import ForgotPassword  from './screens/ForgotPassword.jsx';
 import ResetPassword   from './screens/ResetPassword.jsx';
@@ -90,6 +91,7 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
       <BrowserRouter>
+        <DevBanner />
         <SessionWatcher />
         <Routes>
           {/* Root — auth-aware redirect; no blank screen */}

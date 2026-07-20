@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useBlocker } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth }         from '../auth.jsx';
 import { api }             from '../api.js';
 import AppShell            from './AppShell.jsx';
@@ -19,15 +19,6 @@ export default function Profile() {
   const [error,   setError]   = useState('');
 
   useBeforeUnload(editing);
-  const blocker = useBlocker(editing);
-  useEffect(() => {
-    if (blocker.state !== 'blocked') return;
-    if (window.confirm('You have unsaved changes. Leave anyway?')) {
-      blocker.proceed();
-    } else {
-      blocker.reset();
-    }
-  }, [blocker]);
 
   function startEdit() {
     setForm({
