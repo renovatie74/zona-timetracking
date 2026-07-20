@@ -33,7 +33,10 @@ async function request(method, path, body) {
   const json = await res.json().catch(() => ({ error: 'Unexpected response from server' }));
 
   if (!res.ok) {
-    if (res.status === 401) {
+    // Only treat 401 as an expired session on protected routes.
+    // Auth routes (/api/auth/*) are either public (activate, reset-password)
+    // or used to probe login state — a 401 there just means "not logged in".
+    if (res.status === 401 && !path.startsWith('/api/auth/')) {
       window.dispatchEvent(new CustomEvent('session:expired'));
     }
     throw new ApiError(res.status, json.error ?? 'An error occurred');
