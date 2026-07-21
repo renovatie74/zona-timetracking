@@ -20,7 +20,7 @@ export async function login(request, env) {
 
   const user = await env.DB.prepare(
     `SELECT u.id, u.password_hash, u.is_active, u.first_name, u.last_name,
-            (u.first_name || ' ' || u.last_name) AS name, r.name AS role
+            (u.first_name || ' ' || u.last_name) AS name, u.email, u.mobile, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.email = ?`,
   ).bind(email).first();
 
@@ -68,7 +68,7 @@ export async function login(request, env) {
   });
 
   return setJwtCookie(
-    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name }),
+    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name, email: user.email, phone: user.mobile }),
     token,
   );
 }
