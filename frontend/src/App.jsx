@@ -50,11 +50,30 @@ function SessionWatcher() {
 }
 
 function LangSyncer() {
-  const { user } = useAuth();
-  const { setLang } = useTranslation();
+  const { user, setUser } = useAuth();
+  const { lang, setLang } = useTranslation();
   useEffect(() => {
-    if (user?.language) setLang(user.language);
-  }, [user?.language]); // eslint-disable-line
+    if (!user) return;
+    const dbLang    = user.language ?? 'en';
+    const localLang = lang; // what the user sees right now (from localStorage)
+
+    if (dbLang === localLang) return; // already in sync — nothing to do
+
+    // The user chose a language on the login screen before logging in.
+    // Their explicit choice (localLang) wins; save it to the DB so future
+    // sessions start in the right language without needing a re-selection.
+    fetch('/api/profile', {
+      method:      'PATCH',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ language: localLang }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setUser(u => ({ ...u, language: localLang }));
+      })
+      .catch(() => {}); // silent — UI already shows the right language
+  }, [user?.id]); // eslint-disable-line — run once per login, not on every render
   return null;
 }
 
