@@ -1,7 +1,8 @@
 import { requireRole }      from '../middleware/auth.js';
 import { getManagerScope }  from '../lib/scope.js';
 
-const ADMIN_OR_MGR = requireRole('administrator', 'manager');
+const ADMIN_OR_MGR     = requireRole('administrator', 'manager');
+const ADMIN_MGR_OR_SUP = requireRole('administrator', 'manager', 'supervisor');
 
 function calcDuration(start, finish) {
   const [sh, sm] = start.split(':').map(Number);
@@ -10,7 +11,7 @@ function calcDuration(start, finish) {
 }
 
 export async function list(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url       = new URL(request.url);

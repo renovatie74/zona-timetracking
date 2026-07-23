@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams, Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import PasswordInput from '../components/PasswordInput.jsx';
+import { useTranslation, SUPPORTED_LANGS } from '../i18n/index.jsx';
 
 export default function Login() {
   const { login, user, loading: authLoading } = useAuth();
   const navigate  = useNavigate();
   const [params]  = useSearchParams();
+  const { t, lang, setLang } = useTranslation();
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
@@ -43,17 +45,17 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} noValidate>
           {activated && !error && (
-            <div className="success-banner">Account activated. You can now sign in.</div>
+            <div className="success-banner">{t('accountActivated')}</div>
           )}
           {expired && !error && !activated && (
             <div className="error-banner" style={{ background: 'rgba(180,83,9,0.06)', borderColor: 'rgba(180,83,9,0.25)', color: 'var(--color-amber-dark, #92660a)' }}>
-              Session expired. Please sign in again.
+              {t('sessionExpired')}
             </div>
           )}
           {error && <div className="error-banner">{error}</div>}
 
           <div className="form-group">
-            <label className="form-label" htmlFor="email">Email</label>
+            <label className="form-label" htmlFor="email">{t('email')}</label>
             <input
               id="email"
               className="form-input"
@@ -66,7 +68,7 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="password">Password</label>
+            <label className="form-label" htmlFor="password">{t('password')}</label>
             <PasswordInput
               id="password"
               autoComplete="current-password"
@@ -77,12 +79,29 @@ export default function Login() {
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? t('signingIn') : t('signIn')}
           </button>
         </form>
 
-        <div className="auth-footer">
-          <Link to="/forgot-password" className="btn-link">Forgot password?</Link>
+        <div className="auth-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Link to="/forgot-password" className="btn-link">{t('forgotPassword')}</Link>
+          <select
+            value={lang}
+            onChange={e => setLang(e.target.value)}
+            style={{
+              fontSize: '0.8125rem',
+              border: '1px solid var(--color-border)',
+              borderRadius: '6px',
+              padding: '0.2rem 0.4rem',
+              background: 'transparent',
+              color: 'var(--color-text)',
+              cursor: 'pointer',
+            }}
+          >
+            {SUPPORTED_LANGS.map(l => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>

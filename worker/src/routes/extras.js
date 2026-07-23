@@ -1,7 +1,8 @@
 import { requireRole, requireAuth }        from '../middleware/auth.js';
 import { getManagerScope }                 from '../lib/scope.js';
 
-const ADMIN_OR_MGR = requireRole('administrator', 'manager');
+const ADMIN_OR_MGR     = requireRole('administrator', 'manager');
+const ADMIN_MGR_OR_SUP = requireRole('administrator', 'manager', 'supervisor');
 
 const VALID_TYPES         = ['extra_work', 'own_cost'];
 const CREATABLE_TYPES     = ['own_cost']; // extra_work is legacy — display only
@@ -48,7 +49,7 @@ async function fetchComments(db, extraId) {
 
 // ── GET /api/extras/summary — lightweight counts for sidebar badge ────────────
 export async function summary(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const { results } = await env.DB.prepare(
@@ -83,11 +84,11 @@ export async function listMine(request, env) {
   const where = conditions.join(' AND ');
   const { results } = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.extra_date, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  ${where}
-     ORDER  BY e.created_at DESC`,
+     ORDER  BY COALESCE(e.extra_date, SUBSTR(e.created_at, 1, 10)) DESC, e.created_at DESC`,
   ).bind(...params).all();
 
   return Response.json({ data: results });
@@ -98,7 +99,7 @@ export async function createMine(request, env) {
   const guard = await requireAuth(request, env);
   if (guard) return guard;
 
-  const { project_id, type, description } = await request.json();
+  const { project_id, type, description, extra_date } = await request.json();
 
   if (!type) return Response.json({ error: 'type is required' }, { status: 400 });
 
@@ -123,18 +124,19 @@ export async function createMine(request, env) {
   ).bind(Number(project_id), request.user.id).first();
   if (!proj) return Response.json({ error: 'Project not found or not assigned to you' }, { status: 400 });
 
-  const now = new Date().toISOString();
+  const now       = new Date().toISOString();
+  const entryDate = extra_date ?? now.slice(0, 10);
   const result = await env.DB.prepare(
-    `INSERT INTO Extras (user_id, project_id, type, description, status, created_by, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'open', ?, ?, ?)`,
-  ).bind(request.user.id, Number(project_id), type, description.trim(), request.user.id, now, now).run();
+    `INSERT INTO Extras (user_id, project_id, type, description, status, created_by, created_at, updated_at, extra_date)
+     VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
+  ).bind(request.user.id, Number(project_id), type, description.trim(), request.user.id, now, now, entryDate).run();
 
   const id = result.meta.last_row_id;
   await addComment(env.DB, id, request.user.id, 'created', null);
 
   const entry = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.extra_date, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  e.id = ?`,
@@ -161,19 +163,20 @@ export async function updateMine(request, env) {
   const type        = body.type        !== undefined ? body.type        : old.type;
   const description = body.description !== undefined ? body.description : old.description;
   const project_id  = body.project_id  !== undefined ? body.project_id  : old.project_id;
+  const extra_date  = body.extra_date  !== undefined ? body.extra_date  : old.extra_date;
 
   const validErr = validatePayload(type, description);
   if (validErr) return Response.json({ error: validErr }, { status: 400 });
 
   const now = new Date().toISOString();
   await env.DB.prepare(
-    `UPDATE Extras SET type = ?, description = ?, project_id = ?, updated_by = ?, updated_at = ?
+    `UPDATE Extras SET type = ?, description = ?, project_id = ?, extra_date = ?, updated_by = ?, updated_at = ?
      WHERE id = ?`,
-  ).bind(type, description.trim(), Number(project_id), request.user.id, now, id).run();
+  ).bind(type, description.trim(), Number(project_id), extra_date, request.user.id, now, id).run();
 
   const entry = await env.DB.prepare(
     `SELECT e.id, e.project_id, p.name AS project_name, p.project_code,
-            e.type, e.description, e.status, e.created_at, e.updated_at
+            e.type, e.description, e.status, e.extra_date, e.created_at, e.updated_at
      FROM   Extras e
      JOIN   Projects p ON p.id = e.project_id
      WHERE  e.id = ?`,

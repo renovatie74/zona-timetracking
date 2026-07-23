@@ -2,7 +2,8 @@ import { requireRole }                from '../middleware/auth.js';
 import { getManagerScope }           from '../lib/scope.js';
 import { getCurrentBusinessWeekStart } from '../lib/businessTime.js';
 
-const ADMIN_OR_MGR = requireRole('administrator', 'manager');
+const ADMIN_OR_MGR     = requireRole('administrator', 'manager');
+const ADMIN_MGR_OR_SUP = requireRole('administrator', 'manager', 'supervisor');
 
 async function getOrgTimezone(db) {
   try {
@@ -23,7 +24,7 @@ function addDays(dateStr, n) {
 
 // ── GET /api/dashboard/operations?week_start=YYYY-MM-DD ───────────────────────
 export async function operations(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url = new URL(request.url);
@@ -210,7 +211,7 @@ export async function operations(request, env) {
 // Returns active employees who have neither project hours nor attendance for
 // the selected week. Counts must match the dashboard's notSubmitted metric.
 export async function missingTimesheets(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url              = new URL(request.url);

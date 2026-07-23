@@ -5,28 +5,22 @@ import { AttendanceCard } from '../components/AttendanceCard.jsx';
 import { ProjectHoursSheet } from '../components/ProjectHoursSheet.jsx';
 import { fmtWeekLabel, weekStartFor } from '../lib/weekUtils.js';
 import { minsToLabel } from '../lib/timeUtils.js';
+import { useTranslation } from '../i18n/index.jsx';
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function fmtDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso + 'T00:00:00Z');
-  const days   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
-}
-
 // ── Delete confirmation ────────────────────────────────────────────────────────
 function DeleteConfirm({ onConfirm, onCancel, busy }) {
+  const { t } = useTranslation();
   return createPortal(
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-modal" onClick={e => e.stopPropagation()}>
-        <p className="em-modal-text">Delete this entry? This cannot be undone.</p>
+        <p className="em-modal-text">{t('deleteEntryConfirm')}</p>
         <div className="em-modal-actions">
-          <button className="em-modal-discard" onClick={onConfirm} disabled={busy}>Delete</button>
-          <button className="em-modal-cancel"  onClick={onCancel}  disabled={busy}>Cancel</button>
+          <button className="em-modal-discard" onClick={onConfirm} disabled={busy}>{t('delete')}</button>
+          <button className="em-modal-cancel"  onClick={onCancel}  disabled={busy}>{t('cancel')}</button>
         </div>
       </div>
     </div>,
@@ -36,6 +30,7 @@ function DeleteConfirm({ onConfirm, onCancel, busy }) {
 
 // ── Main screen ────────────────────────────────────────────────────────────────
 export default function MyDay() {
+  const { t } = useTranslation();
   const [dayData,      setDayData]      = useState(null);
   const [projects,     setProjects]     = useState([]);
   const [loading,      setLoading]      = useState(true);
@@ -46,6 +41,14 @@ export default function MyDay() {
 
   const date = todayISO();
   const weekLabel = fmtWeekLabel(weekStartFor(date));
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00Z');
+    const days   = t('days');
+    const months = t('months');
+    return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  }
 
   const load = useCallback(async () => {
     setError('');
@@ -59,11 +62,11 @@ export default function MyDay() {
       else            setError(dayBody.error ?? 'Failed to load');
       if (projRes.ok) setProjects(projBody.data ?? []);
     } catch {
-      setError('Network error');
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
-  }, [date]);
+  }, [date]); // eslint-disable-line
 
   useEffect(() => { load(); }, [load]);
 
@@ -101,7 +104,7 @@ export default function MyDay() {
         : { work_date: date, project_id, hours_minutes, note };
       const res  = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const body = await res.json();
-      if (!res.ok) { setError(body.error ?? 'Save failed'); setBusy(false); return; }
+      if (!res.ok) { setError(body.error ?? t('saveFailed')); setBusy(false); return; }
       setSheetTarget(null);
       setDayData(prev => {
         const oldList = prev?.project_hours ?? [];
@@ -116,7 +119,7 @@ export default function MyDay() {
         };
       });
     } catch {
-      setError('Network error');
+      setError(t('networkError'));
     } finally {
       setBusy(false);
     }
@@ -126,7 +129,7 @@ export default function MyDay() {
     setBusy(true);
     try {
       const res = await fetch(`/api/my-day/project-hours/${id}`, { method: 'DELETE' });
-      if (!res.ok) { const b = await res.json(); setError(b.error ?? 'Delete failed'); setBusy(false); return; }
+      if (!res.ok) { const b = await res.json(); setError(b.error ?? t('deleteFailed')); setBusy(false); return; }
       setDeleteTarget(null);
       setDayData(prev => {
         const newList   = (prev?.project_hours ?? []).filter(e => e.id !== id);
@@ -138,7 +141,7 @@ export default function MyDay() {
         };
       });
     } catch {
-      setError('Network error');
+      setError(t('networkError'));
     } finally {
       setBusy(false);
     }
@@ -186,18 +189,18 @@ export default function MyDay() {
         {/* Project hours */}
         <div className="md-section-card">
           <div className="md-section-header">
-            <span className="md-section-label">Project Hours</span>
+            <span className="md-section-label">{t('projectHours')}</span>
             <button
               className="mt-add-btn"
               onClick={() => setSheetTarget({})}
               aria-label="Add project hours"
             >
-              + Add
+              {t('add')}
             </button>
           </div>
 
           {entries.length === 0 ? (
-            <p className="mt-no-entries">No project hours recorded today.</p>
+            <p className="mt-no-entries">{t('noProjectHoursToday')}</p>
           ) : (
             <ul className="mt-entry-list" style={{ marginTop: '0.25rem' }}>
               {entries.map(e => (
@@ -230,7 +233,7 @@ export default function MyDay() {
 
           {entries.length > 0 && (
             <div className="mt-week-total" style={{ marginTop: '0.5rem', borderTop: '1px solid var(--color-border)', paddingTop: '0.5rem' }}>
-              <span>Total allocated</span>
+              <span>{t('totalAllocated')}</span>
               <strong>{minsToLabel(allocated)}</strong>
             </div>
           )}
@@ -243,9 +246,9 @@ export default function MyDay() {
               fontSize: '0.8rem',
             }}>
               {variance > 0
-                ? `${minsToLabel(variance)} over attendance`
-                : `${minsToLabel(-variance)} under attendance`}
-              {' — '}attendance and allocated hours don't have to match.
+                ? `${minsToLabel(variance)} ${t('overAttendance')}`
+                : `${minsToLabel(-variance)} ${t('underAttendance')}`}
+              {' — '}{t('hoursMatchNote')}
             </div>
           )}
         </div>

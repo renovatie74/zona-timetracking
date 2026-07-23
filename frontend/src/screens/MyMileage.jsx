@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal }  from 'react-dom';
 import EmployeeNav       from '../components/EmployeeNav.jsx';
 import { getCurrentBusinessWeekStart } from '../lib/businessTime.js';
+import { useTranslation } from '../i18n/index.jsx';
 
 function addWeeks(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00Z');
@@ -9,18 +10,16 @@ function addWeeks(dateStr, n) {
   return d.toISOString().slice(0, 10);
 }
 
-function fmtWeekLabel(weekStart) {
+function fmtWeekLabel(weekStart, months) {
   const d   = new Date(weekStart + 'T00:00:00Z');
   const end = new Date(weekStart + 'T00:00:00Z');
   end.setUTCDate(d.getUTCDate() + 6);
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${months[d.getUTCMonth()]} ${d.getUTCDate()} – ${months[end.getUTCMonth()]} ${end.getUTCDate()}, ${end.getUTCFullYear()}`;
 }
 
-function fmtDate(iso) {
+function fmtDate(iso, months) {
   if (!iso) return '';
   const d = new Date(iso + 'T00:00:00Z');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
@@ -30,41 +29,69 @@ function isCurrentWeekStart(weekStart) {
 
 // ── Project picker ────────────────────────────────────────────────────────────
 function ProjectPicker({ projects, onSelect, onCancel }) {
-  const recent = projects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank);
-  const rest   = projects.filter(p => p.recent_rank == null);
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? projects.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.project_code ?? '').toLowerCase().includes(q)
+      )
+    : null;
+
+  const recent = filtered ? [] : projects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank);
+  const rest   = filtered ? filtered : projects.filter(p => p.recent_rank == null);
+
+  function renderRow(p) {
+    return (
+      <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
+        <span className="em-project-name">{p.name}</span>
+        {p.project_code && <span className="em-project-code">{p.project_code}</span>}
+      </button>
+    );
+  }
 
   return (
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-picker" onClick={e => e.stopPropagation()}>
         <div className="em-picker-header">
-          <h2 className="em-picker-title">Select Project</h2>
+          <h2 className="em-picker-title">{t('selectProject')}</h2>
           <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
         </div>
+        <div className="em-search-wrap">
+          <input
+            className="em-search"
+            type="search"
+            placeholder={t('searchProject')}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
         <div className="em-project-list">
-          {recent.length > 0 && (
+          {filtered ? (
+            filtered.length === 0
+              ? <p className="em-no-results">{t('noProjectsFound')}</p>
+              : filtered.map(renderRow)
+          ) : (
             <>
-              <p className="em-section-label">Recent</p>
-              {recent.map(p => (
-                <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
-                  <span className="em-project-name">{p.name}</span>
-                  {p.project_code && <span className="em-project-code">{p.project_code}</span>}
-                </button>
-              ))}
+              {recent.length > 0 && (
+                <>
+                  <p className="em-section-label">{t('recent')}</p>
+                  {recent.map(renderRow)}
+                </>
+              )}
+              {rest.length > 0 && (
+                <>
+                  <p className="em-section-label">{t('allProjects')}</p>
+                  {rest.map(renderRow)}
+                </>
+              )}
+              {recent.length === 0 && rest.length === 0 && (
+                <p className="em-no-results">{t('noAssignedProjects')}</p>
+              )}
             </>
-          )}
-          {rest.length > 0 && (
-            <>
-              <p className="em-section-label">All Projects</p>
-              {rest.map(p => (
-                <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
-                  <span className="em-project-name">{p.name}</span>
-                  {p.project_code && <span className="em-project-code">{p.project_code}</span>}
-                </button>
-              ))}
-            </>
-          )}
-          {recent.length === 0 && rest.length === 0 && (
-            <p className="em-no-results">No assigned projects found</p>
           )}
         </div>
       </div>
@@ -74,6 +101,7 @@ function ProjectPicker({ projects, onSelect, onCancel }) {
 
 // ── Mileage entry form sheet ──────────────────────────────────────────────────
 function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy }) {
+  const { t } = useTranslation();
   const isEdit = !!initial;
 
   const [workDate, setWorkDate] = useState(initial?.work_date ?? weekStart);
@@ -86,10 +114,10 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
   const [err,      setErr]      = useState('');
 
   function handleSave() {
-    if (!workDate) { setErr('Date is required.'); return; }
-    if (!project)  { setErr('Project is required.'); return; }
+    if (!workDate) { setErr(t('dateRequired'));   return; }
+    if (!project)  { setErr(t('projectRequired')); return; }
     const n = Number(km);
-    if (!km || !isFinite(n) || n <= 0) { setErr('Enter a valid km value greater than 0.'); return; }
+    if (!km || !isFinite(n) || n <= 0) { setErr(t('validKm')); return; }
     setErr('');
     onSave({ work_date: workDate, project_id: project.id, km: n, note: note.trim() || null });
   }
@@ -99,14 +127,14 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
       <div className="em-overlay" onClick={onCancel}>
         <div className="mt-form-sheet" onClick={e => e.stopPropagation()}>
           <div className="mt-form-header">
-            <h2 className="mt-form-title">{isEdit ? 'Edit Mileage' : 'Add Mileage'}</h2>
+            <h2 className="mt-form-title">{isEdit ? t('editMileage') : t('addMileage')}</h2>
             <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
           </div>
 
           {err && <div className="mt-form-error" style={{ padding: '0 20px 4px' }}>{err}</div>}
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Date *</label>
+            <label className="mt-form-label">{t('date')} *</label>
             <input
               type="date"
               className="form-input"
@@ -116,7 +144,7 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
           </div>
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Project *</label>
+            <label className="mt-form-label">{t('project')} *</label>
             <button
               className="mt-project-select-btn"
               type="button"
@@ -132,7 +160,7 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
                   )}
                 </span>
               ) : (
-                <span className="mt-project-placeholder">Select project…</span>
+                <span className="mt-project-placeholder">{t('selectProjectPlaceholder')}</span>
               )}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M4 6l4 4 4-4" stroke="var(--color-grey-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -141,12 +169,12 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
           </div>
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Kilometers *</label>
+            <label className="mt-form-label">{t('kilometers')} *</label>
             <input
               className="mt-time-input"
               type="text"
               inputMode="decimal"
-              placeholder="e.g. 42.5"
+              placeholder={t('kmPlaceholder')}
               value={km}
               onChange={e => setKm(e.target.value)}
             />
@@ -154,12 +182,12 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
             <label className="mt-form-label">
-              Note <span className="mt-optional">(optional)</span>
+              {t('note')} <span className="mt-optional">({t('optional')})</span>
             </label>
             <input
               className="mt-notes-input"
               type="text"
-              placeholder="Brief note…"
+              placeholder={t('briefNote')}
               value={note}
               onChange={e => setNote(e.target.value)}
               maxLength={200}
@@ -172,7 +200,7 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
             disabled={busy}
             style={{ marginBottom: 8 }}
           >
-            {busy ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Mileage'}
+            {busy ? t('saving') : isEdit ? t('saveChanges') : t('addMileage')}
           </button>
         </div>
       </div>
@@ -191,15 +219,16 @@ function MileageFormSheet({ projects, initial, weekStart, onSave, onCancel, busy
 
 // ── Delete confirm ────────────────────────────────────────────────────────────
 function DeleteConfirm({ onConfirm, onCancel, busy }) {
+  const { t } = useTranslation();
   return (
     <div className="em-overlay" onClick={onCancel}>
       <div className="ex-confirm-sheet" onClick={e => e.stopPropagation()}>
-        <h3 className="ex-confirm-title">Delete entry?</h3>
-        <p className="ex-confirm-body">This cannot be undone.</p>
+        <h3 className="ex-confirm-title">{t('deleteMileageConfirm')}</h3>
+        <p className="ex-confirm-body">{t('cannotBeUndone')}</p>
         <div className="ex-confirm-actions">
-          <button className="ex-confirm-cancel" onClick={onCancel}>Cancel</button>
+          <button className="ex-confirm-cancel" onClick={onCancel}>{t('cancel')}</button>
           <button className="ex-confirm-delete" onClick={onConfirm} disabled={busy}>
-            {busy ? 'Deleting…' : 'Delete'}
+            {busy ? t('deleting') : t('delete')}
           </button>
         </div>
       </div>
@@ -209,18 +238,21 @@ function DeleteConfirm({ onConfirm, onCancel, busy }) {
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const style = status === 'completed'
     ? { background: 'var(--color-green-50,#f0fdf4)', color: 'var(--color-green)', border: '1px solid currentColor' }
     : { background: 'var(--color-amber-50,#fffbeb)', color: 'var(--color-amber-dark,#92660a)', border: '1px solid currentColor' };
   return (
     <span className="badge" style={style}>
-      {status === 'completed' ? 'Completed' : 'Open'}
+      {status === 'completed' ? t('completed') : t('open')}
     </span>
   );
 }
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function MyMileage() {
+  const { t } = useTranslation();
+  const months = t('months');
   const CUR_WEEK = getCurrentBusinessWeekStart();
 
   const [weekStart,    setWeekStart]    = useState(CUR_WEEK);
@@ -229,7 +261,7 @@ export default function MyMileage() {
   const [projects,     setProjects]     = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [error,        setError]        = useState('');
-  const [form,         setForm]         = useState(null); // null | {} | { initial }
+  const [form,         setForm]         = useState(null);
   const [deleteId,     setDeleteId]     = useState(null);
   const [busy,         setBusy]         = useState(false);
 
@@ -320,18 +352,18 @@ export default function MyMileage() {
       <div className="mt-screen">
         {/* Header */}
         <div className="ex-header">
-          <h1 className="ex-title">Mileage</h1>
-          <button className="ex-add-btn" onClick={() => setForm({})}>+ Add</button>
+          <h1 className="ex-title">{t('mileage')}</h1>
+          <button className="ex-add-btn" onClick={() => setForm({})}>{t('add')}</button>
         </div>
 
         {/* Week navigation */}
         <div className="mt-week-nav" style={{ marginBottom: '0.75rem' }}>
           <button className="mt-week-arrow" onClick={() => goWeek(-1)} aria-label="Previous week">‹</button>
           <div style={{ textAlign: 'center' }}>
-            <span className="mt-week-range">{fmtWeekLabel(weekStart)}</span>
+            <span className="mt-week-range">{fmtWeekLabel(weekStart, months)}</span>
             {isCurrentWeekStart(weekStart)
-              ? <span className="mt-week-current-chip">Current</span>
-              : <button className="mt-week-today-btn" onClick={() => setWeekStart(CUR_WEEK)}>Current week</button>
+              ? <span className="mt-week-current-chip">{t('current')}</span>
+              : <button className="mt-week-today-btn" onClick={() => setWeekStart(CUR_WEEK)}>{t('currentWeek')}</button>
             }
           </div>
           <button className="mt-week-arrow" onClick={() => goWeek(1)} aria-label="Next week">›</button>
@@ -339,7 +371,7 @@ export default function MyMileage() {
 
         {/* Status filter tabs */}
         <div className="ex-filter-tabs" style={{ marginBottom: '0.75rem' }}>
-          {[['all', 'All'], ['open', 'Open'], ['completed', 'Completed']].map(([val, label]) => (
+          {[['all', t('all')], ['open', t('open')], ['completed', t('completed')]].map(([val, label]) => (
             <button
               key={val}
               className={`filter-pill${statusFilter === val ? ' filter-pill-active' : ''}`}
@@ -355,14 +387,14 @@ export default function MyMileage() {
         {/* Entry list */}
         <div className="ex-list">
           {loading ? (
-            <div className="ex-empty">Loading…</div>
+            <div className="ex-empty">{t('loading')}</div>
           ) : entries.length === 0 ? (
-            <div className="ex-empty">No mileage entries for this week.</div>
+            <div className="ex-empty">{t('noMileageEntries')}</div>
           ) : (
             entries.map(entry => (
               <div key={entry.id} className="ex-card">
                 <div className="ex-card-top">
-                  <span className="ex-card-date">{fmtDate(entry.work_date)}</span>
+                  <span className="ex-card-date">{fmtDate(entry.work_date, months)}</span>
                   <StatusBadge status={entry.status} />
                 </div>
                 <div className="ex-card-project">{entry.project_name}</div>
@@ -402,7 +434,7 @@ export default function MyMileage() {
         {/* Week total */}
         {!loading && entries.length > 0 && (
           <div className="mt-week-total" style={{ marginTop: '0.75rem' }}>
-            <span>Total this week</span>
+            <span>{t('totalThisWeek')}</span>
             <strong>{totalKm} km</strong>
           </div>
         )}

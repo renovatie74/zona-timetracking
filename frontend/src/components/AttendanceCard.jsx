@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { minsFromTime, stepTime, minsToLabel } from '../lib/timeUtils.js';
+import { useTranslation } from '../i18n/index.jsx';
 
 const START_CHIPS  = ['06:00','06:30','07:00','07:30','08:00','08:30','09:00'];
 const FINISH_CHIPS = ['14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00'];
@@ -58,28 +59,29 @@ function TimeChipPicker({ chips, value, onChange }) {
 }
 
 function EditForm({ start, finish, setStart, setFinish, attendance, saving, canSave, showFinishErr, err, onSave, onCancel }) {
+  const { t } = useTranslation();
   return (
     <>
       <div className="mt-form-field" style={{ marginBottom: '0.75rem' }}>
-        <label className="mt-form-label">Start</label>
+        <label className="mt-form-label">{t('start')}</label>
         <TimeChipPicker chips={START_CHIPS} value={start} onChange={setStart} />
       </div>
       <div className="mt-form-field" style={{ marginBottom: '0.75rem' }}>
-        <label className="mt-form-label">Finish</label>
+        <label className="mt-form-label">{t('finish')}</label>
         <TimeChipPicker chips={FINISH_CHIPS} value={finish} onChange={setFinish} />
         {showFinishErr && (
           <div className="mt-form-error" style={{ marginTop: '0.35rem' }}>
-            Finish must be later than Start
+            {t('finishBeforeStart')}
           </div>
         )}
       </div>
       {err && <div className="mt-form-error" style={{ marginBottom: '0.5rem' }}>{err}</div>}
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         <button className="mt-save-btn" style={{ flex: 1 }} disabled={saving || !canSave} onClick={onSave}>
-          {saving ? 'Saving…' : 'Save Attendance'}
+          {saving ? t('saving') : t('saveAttendance')}
         </button>
         <button className="mt-week-arrow" style={{ flexShrink: 0 }} onClick={onCancel}>
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </>
@@ -93,6 +95,7 @@ function EditForm({ start, finish, setStart, setFinish, attendance, saving, canS
 // editable    — show edit button / allow editing (default true, set false for future dates)
 // compact     — inline layout without card wrapper or section header (used in MyTime week view)
 export function AttendanceCard({ attendance, date, onSave, autoEdit = true, editable = true, compact = false }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(autoEdit ? !attendance : false);
   const [start,   setStart]   = useState(attendance?.start_time  ?? '');
   const [finish,  setFinish]  = useState(attendance?.finish_time ?? '');
@@ -119,11 +122,11 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
         body:    JSON.stringify({ work_date: date, start_time: start, finish_time: finish }),
       });
       const body = await res.json();
-      if (!res.ok) { setErr(body.error ?? 'Save failed'); return; }
+      if (!res.ok) { setErr(body.error ?? t('saveFailed')); return; }
       onSave(body.data);
       setEditing(false);
     } catch {
-      setErr('Network error');
+      setErr(t('networkError'));
     } finally {
       setSaving(false);
     }
@@ -144,7 +147,6 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
   const showFinishErr = finish && startMins !== null && finishMins !== null && finishMins <= startMins;
 
   // ── Compact mode (MyTime week view) ─────────────────────────────────────────
-  // No card wrapper, no section header; attendance and edit button shown inline.
   if (compact) {
     if (editing) {
       return (
@@ -173,7 +175,7 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
     }
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '1.75rem' }}>
-        <span style={{ color: 'var(--color-grey-500, #8a8a8a)', fontSize: '0.875rem' }}>Not set</span>
+        <span style={{ color: 'var(--color-grey-500, #8a8a8a)', fontSize: '0.875rem' }}>{t('notSet')}</span>
         {editable && (
           <button
             onClick={() => setEditing(true)}
@@ -189,7 +191,7 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
             }}
           >
             {PENCIL}
-            Set Attendance
+            {t('setAttendance')}
           </button>
         )}
       </div>
@@ -200,7 +202,7 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
   return (
     <div className="md-attendance-card">
       <div className="md-section-header">
-        <span className="md-section-label">Attendance</span>
+        <span className="md-section-label">{t('attendance')}</span>
         {editable && !editing && (
           <button className="mt-mileage-edit-btn" onClick={() => setEditing(true)} aria-label="Edit attendance">
             {PENCIL}
@@ -221,7 +223,7 @@ export function AttendanceCard({ attendance, date, onSave, autoEdit = true, edit
           <span className="md-duration">{minsToLabel(attendance.duration_minutes)}</span>
         </div>
       ) : (
-        <p className="mt-no-entries" style={{ marginTop: '0.25rem' }}>Not set</p>
+        <p className="mt-no-entries" style={{ marginTop: '0.25rem' }}>{t('notSet')}</p>
       )}
     </div>
   );

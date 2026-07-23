@@ -1,8 +1,13 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../auth.jsx';
+import { useTranslation } from '../i18n/index.jsx';
 
 export default function EmployeeNav() {
   const navigate     = useNavigate();
   const { pathname } = useLocation();
+  const { user }     = useAuth();
+  const { t }        = useTranslation();
+  const isSupervisor = user?.role === 'supervisor';
 
   const isMyDay    = pathname === '/my-day';
   const isMyTime   = pathname === '/my-time';
@@ -12,7 +17,7 @@ export default function EmployeeNav() {
 
   const tabs = [
     {
-      label: 'My Day',
+      label: t('navMyDay'),
       active: isMyDay,
       onClick: () => navigate('/my-day'),
       icon: (
@@ -24,7 +29,7 @@ export default function EmployeeNav() {
       ),
     },
     {
-      label: 'My Time',
+      label: t('navMyTime'),
       active: isMyTime,
       onClick: () => navigate('/my-time'),
       icon: (
@@ -36,7 +41,7 @@ export default function EmployeeNav() {
       ),
     },
     {
-      label: 'Mileage',
+      label: t('navMileage'),
       active: isMileage,
       onClick: () => navigate('/my-mileage'),
       icon: (
@@ -48,7 +53,7 @@ export default function EmployeeNav() {
       ),
     },
     {
-      label: 'Extras',
+      label: t('navExtras'),
       active: isExtras,
       onClick: () => navigate('/extras'),
       icon: (
@@ -58,8 +63,21 @@ export default function EmployeeNav() {
         </svg>
       ),
     },
+    ...(isSupervisor ? [{
+      label: t('navPortal'),
+      active: false,
+      onClick: () => navigate('/dashboard'),
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.75"/>
+          <rect x="12" y="3" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.75"/>
+          <rect x="3" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.75"/>
+          <rect x="12" y="12" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.75"/>
+        </svg>
+      ),
+    }] : []),
     {
-      label: 'Account',
+      label: t('navAccount'),
       active: isAccount,
       onClick: () => navigate('/profile'),
       icon: (

@@ -3,8 +3,9 @@ import { writeAudit }               from '../lib/audit.js';
 import { nextProjectCode }          from '../lib/sequence.js';
 import { getManagerScope }          from '../lib/scope.js';
 
-const ADMIN        = requireRole('administrator');
-const ADMIN_OR_MGR = requireRole('administrator', 'manager');
+const ADMIN            = requireRole('administrator');
+const ADMIN_OR_MGR     = requireRole('administrator', 'manager');
+const ADMIN_MGR_OR_SUP = requireRole('administrator', 'manager', 'supervisor');
 
 const VALID_STATUSES = ['planning', 'active', 'completed', 'cancelled'];
 
@@ -17,7 +18,7 @@ const SELECT_COLS = `
 `;
 
 export async function list(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url       = new URL(request.url);
@@ -73,7 +74,7 @@ export async function list(request, env) {
 }
 
 export async function get(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const project = await env.DB.prepare(
@@ -199,7 +200,7 @@ export async function remove(request, env) {
 // ── Assignment endpoints (Sprint 3A) ──────────────────────────────────────────
 
 export async function listAssignments(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id = request.params.id;
@@ -264,7 +265,7 @@ export async function setAssignments(request, env) {
 
 // ── Project weekly hours breakdown (Sprint 6) ─────────────────────────────────
 export async function weeklyHours(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id      = request.params.id;
@@ -311,7 +312,7 @@ export async function weeklyHours(request, env) {
 
 // ── Project timesheet matrix (Sprint 6.4) ────────────────────────────────────
 export async function timesheetMatrix(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id      = request.params.id;
@@ -461,7 +462,7 @@ export async function mine(request, env) {
 // Returns per-project hours + invoice status for the last 4 weeks ending at
 // end_week_start. Used by the Projects list to render the billing horizon strip.
 export async function billingHorizon(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url        = new URL(request.url);

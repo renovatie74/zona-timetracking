@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth.jsx';
 import { api } from '../api.js';
 import PasswordInput from '../components/PasswordInput.jsx';
+import { useTranslation } from '../i18n/index.jsx';
 
 export default function ChangePassword() {
   const { logout }            = useAuth();
   const navigate              = useNavigate();
+  const { t }                 = useTranslation();
 
   const [current,  setCurrent]  = useState('');
   const [password, setPassword] = useState('');
@@ -20,11 +22,11 @@ export default function ChangePassword() {
     setError('');
 
     if (password !== confirm) {
-      setError('New passwords do not match.');
+      setError(t('passwordsDoNotMatch'));
       return;
     }
     if (password.length < 8) {
-      setError('New password must be at least 8 characters.');
+      setError(t('passwordTooShort'));
       return;
     }
 
@@ -35,13 +37,12 @@ export default function ChangePassword() {
         new_password:     password,
       });
       setSuccess(true);
-      // Sign out after password change so a fresh login is required
       setTimeout(() => {
         logout().catch(() => {});
         navigate('/login', { replace: true });
       }, 2000);
     } catch (err) {
-      setError(err.message ?? 'Something went wrong. Please try again.');
+      setError(err.message ?? t('somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -54,18 +55,18 @@ export default function ChangePassword() {
           <h1>Zona Time Tracker</h1>
         </div>
 
-        <p className="auth-title">Change password</p>
+        <p className="auth-title">{t('changePasswordTitle')}</p>
 
         {success ? (
           <div className="success-banner">
-            Password changed successfully. Signing you out…
+            {t('passwordChanged')}
           </div>
         ) : (
           <form onSubmit={handleSubmit} noValidate>
             {error && <div className="error-banner">{error}</div>}
 
             <div className="form-group">
-              <label className="form-label" htmlFor="current">Current password</label>
+              <label className="form-label" htmlFor="current">{t('currentPassword')}</label>
               <PasswordInput
                 id="current"
                 autoComplete="current-password"
@@ -76,7 +77,7 @@ export default function ChangePassword() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="password">New password</label>
+              <label className="form-label" htmlFor="password">{t('newPassword')}</label>
               <PasswordInput
                 id="password"
                 autoComplete="new-password"
@@ -88,7 +89,7 @@ export default function ChangePassword() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="confirm">Confirm new password</label>
+              <label className="form-label" htmlFor="confirm">{t('confirmNewPassword')}</label>
               <PasswordInput
                 id="confirm"
                 autoComplete="new-password"
@@ -99,7 +100,7 @@ export default function ChangePassword() {
             </div>
 
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Saving…' : 'Change password'}
+              {loading ? t('saving') : t('changePasswordTitle')}
             </button>
           </form>
         )}

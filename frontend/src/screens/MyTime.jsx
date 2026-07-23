@@ -6,6 +6,7 @@ import EmployeeNav from '../components/EmployeeNav.jsx';
 import { AttendanceCard } from '../components/AttendanceCard.jsx';
 import { ProjectHoursSheet } from '../components/ProjectHoursSheet.jsx';
 import { minsToLabel } from '../lib/timeUtils.js';
+import { useTranslation } from '../i18n/index.jsx';
 import {
   getBusinessToday,
   getCurrentBusinessWeekStart,
@@ -49,20 +50,17 @@ function isoWeekNumber(weekStart) {
   return Math.floor((monday.getTime() - w1Mon.getTime()) / (7 * 86_400_000)) + 1;
 }
 
-function fmtWeekRange(start, end) {
+function fmtWeekRange(start, end, weekPrefix, weekTo, months) {
   const s = new Date(start + 'T00:00:00Z');
   const e = new Date(end   + 'T00:00:00Z');
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const sStr = `${months[s.getUTCMonth()]} ${s.getUTCDate()}`;
   const eStr = `${months[e.getUTCMonth()]} ${e.getUTCDate()}`;
   const wk   = isoWeekNumber(start);
-  return `Week ${wk} – ${sStr} to ${eStr}`;
+  return `${weekPrefix} ${wk} – ${sStr} ${weekTo} ${eStr}`;
 }
 
-function fmtDayHeading(dateStr) {
+function fmtDayHeading(dateStr, days, months) {
   const d = new Date(dateStr + 'T00:00:00Z');
-  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${days[d.getUTCDay()]}, ${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
@@ -84,6 +82,10 @@ function SourceBadge({ source }) {
 
 // ── Legacy entry form (kept for editing existing start/stop entries only) ─────
 function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy }) {
+  const { t } = useTranslation();
+  const days   = t('days');
+  const months = t('months');
+
   const defaultStart = initialEntry
     ? new Date(initialEntry.start_time).toTimeString().slice(0, 5)
     : '08:00';
@@ -100,7 +102,7 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
   const [formError, setFormError] = useState('');
 
   const handleSave = () => {
-    if (!selectedProject) { setFormError('Please select a project.'); return; }
+    if (!selectedProject) { setFormError(t('pleaseSelectProject')); return; }
     if (!startTime || !stopTime) { setFormError('Start and end times are required.'); return; }
     const startISO = new Date(`${date}T${startTime}`).toISOString();
     const stopISO  = new Date(`${date}T${stopTime}`).toISOString();
@@ -119,17 +121,17 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
     <div className="em-overlay" onClick={onCancel}>
       <div className="mt-form-sheet" onClick={e => e.stopPropagation()}>
         <div className="mt-form-header">
-          <h2 className="mt-form-title">Edit Entry</h2>
+          <h2 className="mt-form-title">{t('editEntry')}</h2>
           <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
         </div>
 
-        <div className="mt-form-date">{fmtDayHeading(date)}</div>
+        <div className="mt-form-date">{fmtDayHeading(date, days, months)}</div>
 
         {formError && <div className="mt-form-error">{formError}</div>}
 
         <div className="mt-form-row">
           <div className="mt-form-field">
-            <label className="mt-form-label" htmlFor="mt-start">Start</label>
+            <label className="mt-form-label" htmlFor="mt-start">{t('start')}</label>
             <input
               id="mt-start"
               className="mt-time-input"
@@ -139,7 +141,7 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
             />
           </div>
           <div className="mt-form-field">
-            <label className="mt-form-label" htmlFor="mt-stop">End</label>
+            <label className="mt-form-label" htmlFor="mt-stop">{t('end')}</label>
             <input
               id="mt-stop"
               className="mt-time-input"
@@ -151,12 +153,12 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
         </div>
 
         <div className="mt-form-field">
-          <label className="mt-form-label" htmlFor="mt-notes">Notes <span className="mt-optional">(optional)</span></label>
+          <label className="mt-form-label" htmlFor="mt-notes">{t('notes')} <span className="mt-optional">({t('optional')})</span></label>
           <input
             id="mt-notes"
             className="mt-notes-input"
             type="text"
-            placeholder="Brief description…"
+            placeholder={t('briefDescription')}
             value={notes}
             onChange={e => setNotes(e.target.value)}
             maxLength={200}
@@ -164,7 +166,7 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
         </div>
 
         <button className="mt-save-btn" onClick={handleSave} disabled={busy}>
-          {busy ? 'Saving…' : 'Save Changes'}
+          {busy ? t('saving') : t('saveChanges')}
         </button>
       </div>
     </div>,
@@ -174,6 +176,7 @@ function LegacyEntrySheet({ date, projects, initialEntry, onSave, onCancel, busy
 
 // ── Mileage bottom-sheet modal ────────────────────────────────────────────────
 function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
+  const { t } = useTranslation();
   const [km,  setKm]  = useState(initial != null ? String(initial) : '');
   const [err, setErr] = useState('');
 
@@ -187,7 +190,7 @@ function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
     onSave(v);
   };
 
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = t('months');
   const s = new Date(weekStart + 'T00:00:00Z');
   const e = new Date(weekStart + 'T00:00:00Z');
   e.setUTCDate(e.getUTCDate() + 6);
@@ -197,7 +200,7 @@ function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
     <div className="em-overlay" onClick={onCancel}>
       <div className="mt-form-sheet" onClick={ev => ev.stopPropagation()}>
         <div className="mt-form-header">
-          <h2 className="mt-form-title">Weekly Mileage</h2>
+          <h2 className="mt-form-title">{t('weeklyMileage')}</h2>
           <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
         </div>
 
@@ -206,7 +209,7 @@ function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
         {err && <div className="mt-form-error">{err}</div>}
 
         <div className="mt-form-field">
-          <label className="mt-form-label" htmlFor="mt-km">Distance (km)</label>
+          <label className="mt-form-label" htmlFor="mt-km">{t('distanceKm')}</label>
           <input
             id="mt-km"
             className="mt-time-input"
@@ -219,7 +222,7 @@ function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
         </div>
 
         <button className="mt-save-btn" onClick={handleSave} disabled={busy}>
-          {busy ? 'Saving…' : 'Save Mileage'}
+          {busy ? t('saving') : t('saveMileage')}
         </button>
       </div>
     </div>,
@@ -229,13 +232,14 @@ function MileageSheet({ weekStart, initial, onSave, onCancel, busy }) {
 
 // ── Delete confirmation ───────────────────────────────────────────────────────
 function DeleteConfirm({ message, onConfirm, onCancel, busy }) {
+  const { t } = useTranslation();
   return createPortal(
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-modal" onClick={e => e.stopPropagation()}>
         <p className="em-modal-text">{message}</p>
         <div className="em-modal-actions">
-          <button className="em-modal-discard" onClick={onConfirm} disabled={busy}>Delete</button>
-          <button className="em-modal-cancel"  onClick={onCancel}  disabled={busy}>Cancel</button>
+          <button className="em-modal-discard" onClick={onConfirm} disabled={busy}>{t('delete')}</button>
+          <button className="em-modal-cancel"  onClick={onCancel}  disabled={busy}>{t('cancel')}</button>
         </div>
       </div>
     </div>,
@@ -283,6 +287,9 @@ function DaySection({
   onAttendanceSaved, onAddHours, onEditHours, onDeleteHours,
   onEditLegacy, onDeleteLegacy,
 }) {
+  const { t } = useTranslation();
+  const days   = t('days');
+  const months = t('months');
   const isFuture    = isFutureBusinessDate(dateStr);
   const closed      = entries.filter(e => e.stop_time);
   const legacyTotal = closed.reduce((s, e) => s + (e.rounded_duration_minutes ?? e.duration_minutes ?? 0), 0);
@@ -295,7 +302,7 @@ function DaySection({
 
       {/* 1. Day header — date + total only, no generic "+ Add" button */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-        <span className="mt-day-name">{fmtDayHeading(dateStr)}</span>
+        <span className="mt-day-name">{fmtDayHeading(dateStr, days, months)}</span>
         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-grey-500, #8a8a8a)' }}>
           {fmtDuration(displayTotal)}
         </span>
@@ -303,7 +310,7 @@ function DaySection({
 
       {/* 2. Attendance section */}
       <div style={{ marginBottom: '0.875rem' }}>
-        <div style={SUB_LABEL}>Attendance</div>
+        <div style={SUB_LABEL}>{t('attendance')}</div>
         <AttendanceCard
           compact
           attendance={attendance}
@@ -317,18 +324,16 @@ function DaySection({
       {/* 3. Project Hours section */}
       <div>
         {hasPH ? (
-          /* Has entries: label + "Add" button share the header row */
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-            <div style={SUB_LABEL}>Project Hours</div>
+            <div style={SUB_LABEL}>{t('projectHours')}</div>
             {!isFuture && (
               <button style={AMBER_BTN} onClick={() => onAddHours(dateStr)}>
-                + Add Project Hours
+                {t('addProjectHours')}
               </button>
             )}
           </div>
         ) : (
-          /* No entries: label on its own line */
-          <div style={{ ...SUB_LABEL, marginBottom: '0.375rem' }}>Project Hours</div>
+          <div style={{ ...SUB_LABEL, marginBottom: '0.375rem' }}>{t('projectHours')}</div>
         )}
 
         {hasPH ? (
@@ -362,14 +367,13 @@ function DaySection({
             ))}
           </ul>
         ) : (
-          /* No entries: message + "Add" button on same row */
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
             <span style={{ color: 'var(--color-grey-500, #8a8a8a)', fontSize: '0.875rem' }}>
-              No project hours recorded.
+              {t('noProjectHours')}
             </span>
             {!isFuture && (
               <button style={AMBER_BTN} onClick={() => onAddHours(dateStr)}>
-                + Add Project Hours
+                {t('addProjectHours')}
               </button>
             )}
           </div>
@@ -420,6 +424,7 @@ function DaySection({
 export default function MyTime() {
   const { logout } = useAuth();
   const navigate   = useNavigate();
+  const { t }      = useTranslation();
 
   const [weekStart, setWeekStart] = useState(getCurrentBusinessWeekStart);
   const weekEnd     = weekEndFor(weekStart);
@@ -435,13 +440,10 @@ export default function MyTime() {
   const [error,        setError]        = useState('');
   const [mileageModal, setMileageModal] = useState(false);
 
-  // Project hours sheet (new model)
-  const [sheetTarget,  setSheetTarget]  = useState(null); // { date, existing? }
-  // Delete confirmations — separate for project-hours vs legacy
-  const [deleteTarget,       setDeleteTarget]       = useState(null); // { id, date } project hours
-  const [legacyDeleteTarget, setLegacyDeleteTarget] = useState(null); // id — legacy time entry
-  // Legacy entry editor (edit existing start/stop entries only)
-  const [legacyFormTarget, setLegacyFormTarget] = useState(null); // { date, entry }
+  const [sheetTarget,  setSheetTarget]  = useState(null);
+  const [deleteTarget,       setDeleteTarget]       = useState(null);
+  const [legacyDeleteTarget, setLegacyDeleteTarget] = useState(null);
+  const [legacyFormTarget, setLegacyFormTarget] = useState(null);
 
   const loadWeek = useCallback(async () => {
     setLoading(true);
@@ -457,7 +459,8 @@ export default function MyTime() {
       ]);
       setEntries(myData.data     ?? []);
       setProjects(projData.data  ?? []);
-      setMileage(mlData.data     ?? null);
+      const mlEntries = Array.isArray(mlData.data) ? mlData.data : [];
+      setMileage(mlEntries.length > 0 ? mlEntries.reduce((s, e) => s + (e.km || 0), 0) : null);
       setMyDayWeek(mdData.data   ?? null);
     } catch {
       // leave previous state
@@ -481,7 +484,6 @@ export default function MyTime() {
     return () => window.removeEventListener('keydown', onKey);
   }, [deleteTarget, legacyDeleteTarget, sheetTarget, legacyFormTarget, mileageModal]);
 
-  // ── Attendance ───────────────────────────────────────────────────────────────
   function handleAttendanceSaved(dateStr, a) {
     setMyDayWeek(prev => ({
       ...prev,
@@ -489,7 +491,6 @@ export default function MyTime() {
     }));
   }
 
-  // ── Project hours (new model) ────────────────────────────────────────────────
   async function handleProjectHoursSave({ project_id, hours_minutes, note }) {
     setBusy(true);
     setError('');
@@ -503,7 +504,7 @@ export default function MyTime() {
         : { work_date: date, project_id, hours_minutes, note };
       const res  = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const body = await res.json();
-      if (!res.ok) { setError(body.error ?? 'Save failed'); return; }
+      if (!res.ok) { setError(body.error ?? t('couldNotSaveEntry')); return; }
       setSheetTarget(null);
       setMyDayWeek(prev => {
         const oldList = prev?.project_hours_by_date?.[date] ?? [];
@@ -513,7 +514,7 @@ export default function MyTime() {
         return { ...prev, project_hours_by_date: { ...(prev?.project_hours_by_date ?? {}), [date]: newList } };
       });
     } catch {
-      setError('Network error');
+      setError(t('networkError'));
     } finally {
       setBusy(false);
     }
@@ -526,7 +527,7 @@ export default function MyTime() {
     const { id, date } = deleteTarget;
     try {
       const res = await fetch(`/api/my-day/project-hours/${id}`, { method: 'DELETE' });
-      if (!res.ok) { const b = await res.json(); setError(b.error ?? 'Delete failed'); return; }
+      if (!res.ok) { const b = await res.json(); setError(b.error ?? t('couldNotDeleteEntry')); return; }
       setDeleteTarget(null);
       setMyDayWeek(prev => ({
         ...prev,
@@ -536,13 +537,12 @@ export default function MyTime() {
         },
       }));
     } catch {
-      setError('Network error');
+      setError(t('networkError'));
     } finally {
       setBusy(false);
     }
   }
 
-  // ── Legacy time entries ──────────────────────────────────────────────────────
   const handleLegacySave = async ({ entryId, project_id, start_time, stop_time, notes }) => {
     setBusy(true);
     setError('');
@@ -557,13 +557,13 @@ export default function MyTime() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? 'Could not save entry');
+        setError(data.error ?? t('couldNotSaveEntry'));
       } else {
         setLegacyFormTarget(null);
         await loadWeek();
       }
     } catch {
-      setError('Network error. Please try again.');
+      setError(t('networkErrorRetry'));
     }
     setBusy(false);
   };
@@ -576,13 +576,13 @@ export default function MyTime() {
       const res = await fetch(api(`/my-time/${legacyDeleteTarget}`), { method: 'DELETE', credentials: 'include' });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? 'Could not delete entry');
+        setError(data.error ?? t('couldNotDeleteEntry'));
       } else {
         setLegacyDeleteTarget(null);
         await loadWeek();
       }
     } catch {
-      setError('Network error. Please try again.');
+      setError(t('networkErrorRetry'));
     }
     setBusy(false);
   };
@@ -602,10 +602,10 @@ export default function MyTime() {
         setMileage(data.data);
         setMileageModal(false);
       } else {
-        setError(data.error ?? 'Could not save mileage');
+        setError(data.error ?? t('couldNotSaveMileage'));
       }
     } catch {
-      setError('Network error. Please try again.');
+      setError(t('networkErrorRetry'));
     }
     setMileageBusy(false);
   };
@@ -633,10 +633,14 @@ export default function MyTime() {
     );
   }
 
+  const months     = t('months');
+  const weekPrefix = t('weekPrefix');
+  const weekTo     = t('weekTo');
+
   return (
     <div className="mt-root">
       <div className="em-topbar">
-        <button className="em-signout-btn" onClick={handleSignOut}>Sign out</button>
+        <button className="em-signout-btn" onClick={handleSignOut}>{t('signOut')}</button>
       </div>
 
       {error && (
@@ -657,8 +661,8 @@ export default function MyTime() {
             ‹
           </button>
           <div className="mt-week-label">
-            <span className="mt-week-range">{fmtWeekRange(weekStart, weekEnd)}</span>
-            {isCurrentWk && <span className="mt-week-current-chip">This week</span>}
+            <span className="mt-week-range">{fmtWeekRange(weekStart, weekEnd, weekPrefix, weekTo, months)}</span>
+            {isCurrentWk && <span className="mt-week-current-chip">{t('thisWeek')}</span>}
           </div>
           <button
             className="mt-week-arrow"
@@ -672,27 +676,16 @@ export default function MyTime() {
 
         {weekTotal > 0 && (
           <div className="mt-week-total">
-            <span>Week total</span>
+            <span>{t('weekTotal')}</span>
             <strong>{fmtDuration(weekTotal)}</strong>
           </div>
         )}
 
         {/* Mileage row */}
         <div className="mt-mileage-row">
-          <span className="mt-mileage-label">Mileage</span>
+          <span className="mt-mileage-label">{t('mileage')}</span>
           <div className="mt-mileage-value">
-            <strong>{mileage != null ? `${mileage.mileage_km} km` : '—'}</strong>
-            {isCurrentWk && (
-              <button
-                className="mt-mileage-edit-btn"
-                onClick={() => setMileageModal(true)}
-                aria-label="Edit mileage"
-              >
-                <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-                  <path d="M10.5 2L13 4.5L5 12.5H2.5V10L10.5 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            )}
+            <strong>{mileage != null ? `${mileage} km` : '—'}</strong>
           </div>
         </div>
 
@@ -720,16 +713,6 @@ export default function MyTime() {
 
       <EmployeeNav />
 
-      {mileageModal && (
-        <MileageSheet
-          weekStart={weekStart}
-          initial={mileage?.mileage_km}
-          onSave={handleSaveMileage}
-          onCancel={() => setMileageModal(false)}
-          busy={mileageBusy}
-        />
-      )}
-
       {sheetTarget && (
         <ProjectHoursSheet
           date={sheetTarget.date}
@@ -745,7 +728,7 @@ export default function MyTime() {
 
       {deleteTarget && (
         <DeleteConfirm
-          message="Delete this entry? This cannot be undone."
+          message={t('deleteEntryConfirm')}
           onConfirm={handleProjectHoursDelete}
           onCancel={() => setDeleteTarget(null)}
           busy={busy}
@@ -765,7 +748,7 @@ export default function MyTime() {
 
       {legacyDeleteTarget && (
         <DeleteConfirm
-          message="Delete this time entry? This cannot be undone."
+          message={t('deleteTimeEntryConfirm')}
           onConfirm={handleLegacyDelete}
           onCancel={() => setLegacyDeleteTarget(null)}
           busy={busy}

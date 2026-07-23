@@ -8,7 +8,7 @@ import { AssignmentChecklist } from '../../components/AssignmentChecklist.jsx';
 import { useToast }            from '../../hooks/useToast.jsx';
 import { useDebounce }         from '../../hooks/useDebounce.js';
 
-const ROLES = ['employee', 'manager', 'administrator'];
+const ROLES = ['employee', 'manager', 'supervisor', 'administrator'];
 const EMPTY = { first_name: '', last_name: '', email: '', phone: '', role: 'employee', team_id: '' };
 
 function fmtMins(m) {

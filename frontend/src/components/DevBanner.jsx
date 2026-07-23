@@ -1,13 +1,15 @@
 import { useEffect } from 'react';
 
-const PROD_HOST = 'time.zonaproperties.ae';
-const IS_DEV    = window.location.hostname !== PROD_HOST;
-const BANNER_H  = 28;
+const PROD_HOST      = 'time.zonaproperties.ae';
+const IS_DEV         = window.location.hostname !== PROD_HOST;
+const BANNER_CONTENT = 28; // px — visible text row below the safe area
 
 export default function DevBanner() {
   useEffect(() => {
     if (!IS_DEV) return;
-    document.documentElement.style.setProperty('--dev-banner-h', `${BANNER_H}px`);
+    // Layout roots offset by just the content height; they each add
+    // env(safe-area-inset-top) independently via their own CSS.
+    document.documentElement.style.setProperty('--dev-banner-h', `${BANNER_CONTENT}px`);
     return () => document.documentElement.style.removeProperty('--dev-banner-h');
   }, []);
 
@@ -25,7 +27,9 @@ export default function DevBanner() {
         top:            0,
         left:           0,
         right:          0,
-        height:         BANNER_H,
+        // Grow to cover the status-bar / notch area on iOS
+        height:         `calc(${BANNER_CONTENT}px + env(safe-area-inset-top, 0px))`,
+        paddingTop:     'env(safe-area-inset-top, 0px)',
         zIndex:         9999,
         background:     '#F59E0B',
         color:          '#451A03',
@@ -40,6 +44,7 @@ export default function DevBanner() {
         userSelect:     'none',
         pointerEvents:  'none',
         fontFamily:     'inherit',
+        boxSizing:      'border-box',
       }}
     >
       <span style={{ fontSize: '0.875rem', lineHeight: 1 }}>⚠</span>

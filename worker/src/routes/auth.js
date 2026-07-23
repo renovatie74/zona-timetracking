@@ -20,7 +20,7 @@ export async function login(request, env) {
 
   const user = await env.DB.prepare(
     `SELECT u.id, u.password_hash, u.is_active, u.first_name, u.last_name,
-            (u.first_name || ' ' || u.last_name) AS name, u.email, u.mobile, r.name AS role
+            (u.first_name || ' ' || u.last_name) AS name, u.email, u.mobile, u.language, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.email = ?`,
   ).bind(email).first();
 
@@ -68,7 +68,7 @@ export async function login(request, env) {
   });
 
   return setJwtCookie(
-    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name, email: user.email, phone: user.mobile }),
+    Response.json({ id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name, name: user.name, email: user.email, phone: user.mobile, language: user.language ?? 'en' }),
     token,
   );
 }
@@ -104,7 +104,7 @@ export async function me(request, env) {
 
   const user = await env.DB.prepare(
     `SELECT u.id, u.first_name, u.last_name, (u.first_name || ' ' || u.last_name) AS name,
-            u.email, u.mobile, r.name AS role
+            u.email, u.mobile, u.language, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
   ).bind(request.user.id).first();
 
@@ -112,7 +112,7 @@ export async function me(request, env) {
 
   return Response.json({
     id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name,
-    name: user.name, email: user.email, phone: user.mobile,
+    name: user.name, email: user.email, phone: user.mobile, language: user.language ?? 'en',
   });
 }
 
@@ -133,6 +133,9 @@ export async function updateProfile(request, env) {
       return Response.json({ error: 'Phone must be in E.164 format (e.g. +48600100200)' }, { status: 400 });
     }
   }
+  if (body.language !== undefined && !['en', 'pl'].includes(body.language)) {
+    return Response.json({ error: 'Invalid language' }, { status: 400 });
+  }
 
   const updates = [];
   const params  = [];
@@ -140,6 +143,7 @@ export async function updateProfile(request, env) {
   if (body.first_name !== undefined) { updates.push('first_name = ?'); params.push(body.first_name.trim()); }
   if (body.last_name  !== undefined) { updates.push('last_name = ?');  params.push(body.last_name.trim()); }
   if (body.phone      !== undefined) { updates.push('mobile = ?');     params.push(body.phone || null); }
+  if (body.language   !== undefined) { updates.push('language = ?');   params.push(body.language); }
 
   if (updates.length === 0) {
     return Response.json({ error: 'No fields to update' }, { status: 400 });
@@ -158,13 +162,13 @@ export async function updateProfile(request, env) {
 
   const user = await env.DB.prepare(
     `SELECT u.id, u.first_name, u.last_name, (u.first_name || ' ' || u.last_name) AS name,
-            u.email, u.mobile, r.name AS role
+            u.email, u.mobile, u.language, r.name AS role
      FROM Users u JOIN Roles r ON r.id = u.role_id WHERE u.id = ?`,
   ).bind(request.user.id).first();
 
   return Response.json({
     id: user.id, role: user.role, first_name: user.first_name, last_name: user.last_name,
-    name: user.name, email: user.email, phone: user.mobile,
+    name: user.name, email: user.email, phone: user.mobile, language: user.language ?? 'en',
   });
 }
 
@@ -242,7 +246,7 @@ export async function forgotPassword(request, env, ctx) {
     ).bind(token, expires, now, user.id).run();
 
     // Fire-and-forget: don't block the response on email delivery
-    ctx?.waitUntil(sendPasswordReset(env, { name: user.name, email: user.email, token }));
+    ctx?.waitUntil(sendPasswordReset(env, { name: user.name, email: user.email, token, expiresAt: expires }));
 
     await writeAudit(env.DB, {
       actorId: user.id, action: 'password_reset_requested', entityType: 'user', entityId: user.id,

@@ -7,7 +7,7 @@
 // HTML navigation is now network-first so new deployments always
 // load the correct hashed JS bundle.
 
-const CACHE = 'zona-time-v2';
+const CACHE = 'zona-time-v3';
 const STATIC = [
   '/manifest.json',
   '/icons/icon-192.png',

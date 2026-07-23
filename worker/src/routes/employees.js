@@ -34,8 +34,9 @@ function validatePhone(phone) {
   return null;
 }
 
-const ADMIN        = requireRole('administrator');
-const ADMIN_OR_MGR = requireRole('administrator', 'manager');
+const ADMIN            = requireRole('administrator');
+const ADMIN_OR_MGR     = requireRole('administrator', 'manager');
+const ADMIN_MGR_OR_SUP = requireRole('administrator', 'manager', 'supervisor');
 
 const SELECT_COLS = `
   u.id, u.employee_number AS employee_code, u.first_name, u.last_name,
@@ -50,7 +51,7 @@ const SELECT_COLS = `
 `;
 
 export async function list(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const url    = new URL(request.url);
@@ -117,7 +118,7 @@ export async function list(request, env) {
 }
 
 export async function get(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const user = await env.DB.prepare(
@@ -145,7 +146,7 @@ export async function create(request, env, ctx) {
   const phoneErr = validatePhone(phone);
   if (phoneErr) return Response.json({ error: phoneErr }, { status: 400 });
 
-  const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 2, employee: 1, worker: 1 };
+  const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 4, employee: 1, worker: 1 };
   const role_id  = ROLE_MAP[role] ?? 1;
 
   const { employee_number } = await nextEmployeeCode(env.DB);
@@ -175,7 +176,7 @@ export async function create(request, env, ctx) {
   }
 
   try {
-    await sendActivationEmail(env, { name: fullName, email: normalEmail, token: rawToken });
+    await sendActivationEmail(env, { name: fullName, email: normalEmail, token: rawToken, expiresAt: inviteExpires });
   } catch (emailErr) {
     console.error('[employees.create] activation email failed:', emailErr?.message);
     // Employee was created — don't roll back, just log the email failure
@@ -210,7 +211,7 @@ export async function update(request, env) {
   if (!old) return Response.json({ error: 'Employee not found' }, { status: 404 });
 
   const body = await request.json();
-  const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 2, employee: 1, worker: 1 };
+  const ROLE_MAP = { administrator: 3, manager: 2, supervisor: 4, employee: 1, worker: 1 };
 
   const first_name = body.first_name !== undefined ? body.first_name.trim() : old.first_name;
   const last_name  = body.last_name  !== undefined ? body.last_name.trim()  : old.last_name;
@@ -411,7 +412,7 @@ export async function resendActivation(request, env, ctx) {
 
   const fullName = `${emp.first_name} ${emp.last_name}`;
   try {
-    await sendActivationEmail(env, { name: fullName, email: emp.email, token: rawToken });
+    await sendActivationEmail(env, { name: fullName, email: emp.email, token: rawToken, expiresAt: expires });
   } catch (emailErr) {
     return Response.json({ error: `Email delivery failed: ${emailErr.message}` }, { status: 422 });
   }
@@ -426,7 +427,7 @@ export async function resendActivation(request, env, ctx) {
 
 // ── Employee weekly hours breakdown (Sprint 6) ────────────────────────────────
 export async function weeklyHours(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id  = request.params.id;
@@ -487,7 +488,7 @@ export async function weeklyHours(request, env) {
 
 // ── Employee timesheet matrix (Sprint 6.4) ───────────────────────────────────
 export async function timesheetMatrix(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id  = request.params.id;
@@ -587,7 +588,7 @@ export async function timesheetMatrix(request, env) {
 
 // ── Employee daily hours drilldown (Sprint 6.4) ──────────────────────────────
 export async function hoursByDay(request, env) {
-  const guard = await ADMIN_OR_MGR(request, env);
+  const guard = await ADMIN_MGR_OR_SUP(request, env);
   if (guard) return guard;
 
   const id  = request.params.id;

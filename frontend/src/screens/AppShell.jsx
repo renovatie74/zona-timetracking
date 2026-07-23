@@ -102,6 +102,16 @@ function IconConsole() {
   );
 }
 
+function IconMyTime() {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+      <rect x="2" y="4" width="16" height="13" rx="2"/>
+      <path d="M6 2v3M14 2v3M2 9h16"/>
+      <path d="M6 13h4M6 15.5h7"/>
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -117,6 +127,7 @@ export default function AppShell({ children, title }) {
   const [extrasBadge, setExtrasBadge] = useState(0);
 
   const isAdminOrMgr = ['administrator', 'manager'].includes(user?.role);
+  const isSupervisor = user?.role === 'supervisor';
 
   useEffect(() => {
     if (!isAdminOrMgr) return;
@@ -146,16 +157,17 @@ export default function AppShell({ children, title }) {
   const isAdmin = user?.role === 'administrator';
 
   const navLinks = [
-    { to: '/dashboard',      label: 'Dashboard',     Icon: IconDashboard,   show: true,         badge: 0            },
-    { to: '/clients',        label: 'Clients',       Icon: IconClients,     show: isAdminOrMgr, badge: 0            },
-    { to: '/projects',       label: 'Projects',      Icon: IconProjects,    show: isAdminOrMgr, badge: 0            },
-    { to: '/employees',      label: 'Employees',     Icon: IconEmployees,   show: isAdminOrMgr, badge: 0            },
-    { to: '/teams',          label: 'Teams',         Icon: IconTeams,       show: isAdminOrMgr, badge: 0            },
-    { to: '/attendance',      label: 'Attendance',    Icon: IconAttendance,  show: isAdminOrMgr, badge: 0            },
-    { to: '/admin/extras',   label: 'Extras',        Icon: IconExtras,      show: isAdminOrMgr, badge: extrasBadge  },
-    { to: '/admin/mileage',  label: 'Mileage',       Icon: IconMileage,     show: isAdminOrMgr, badge: 0            },
-    { to: '/admin-console',  label: 'Admin Console', Icon: IconConsole,     show: isAdmin,      badge: 0            },
-    { to: '/profile',        label: 'Profile',       Icon: IconProfile,     show: true,         badge: 0            },
+    { to: '/dashboard',      label: 'Dashboard',     Icon: IconDashboard,   show: true,                         badge: 0           },
+    { to: '/clients',        label: 'Clients',       Icon: IconClients,     show: isAdminOrMgr,                 badge: 0           },
+    { to: '/projects',       label: 'Projects',      Icon: IconProjects,    show: isAdminOrMgr || isSupervisor, badge: 0           },
+    { to: '/employees',      label: 'Employees',     Icon: IconEmployees,   show: isAdminOrMgr,                 badge: 0           },
+    { to: '/teams',          label: 'Teams',         Icon: IconTeams,       show: isAdminOrMgr,                 badge: 0           },
+    { to: '/attendance',     label: 'Attendance',    Icon: IconAttendance,  show: isAdminOrMgr || isSupervisor, badge: 0           },
+    { to: '/admin/extras',   label: 'Extras',        Icon: IconExtras,      show: isAdminOrMgr,                 badge: extrasBadge },
+    { to: '/admin/mileage',  label: 'Mileage',       Icon: IconMileage,     show: isAdminOrMgr,                 badge: 0           },
+    { to: '/admin-console',  label: 'Admin Console', Icon: IconConsole,     show: isAdmin,                      badge: 0           },
+    { to: '/my-time',        label: 'My Time',       Icon: IconMyTime,      show: isSupervisor,                 badge: 0           },
+    { to: '/profile',        label: 'Profile',       Icon: IconProfile,     show: true,                         badge: 0           },
   ].filter(l => l.show);
 
   return (

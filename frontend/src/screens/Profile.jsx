@@ -7,11 +7,13 @@ import EmployeeNav         from '../components/EmployeeNav.jsx';
 import PhoneInput          from '../components/PhoneInput.jsx';
 import { useToast }        from '../hooks/useToast.jsx';
 import { useBeforeUnload } from '../hooks/useBeforeUnload.js';
+import { useTranslation, SUPPORTED_LANGS } from '../i18n/index.jsx';
 
 export default function Profile() {
   const { user, logout, setUser } = useAuth();
   const navigate                  = useNavigate();
   const { toast }                 = useToast();
+  const { t, lang, setLang }      = useTranslation();
 
   const [editing, setEditing] = useState(false);
   const [form,    setForm]    = useState({ first_name: '', last_name: '', phone: '' });
@@ -60,26 +62,59 @@ export default function Profile() {
     navigate('/login', { replace: true });
   }
 
+  async function handleLangChange(e) {
+    const newLang = e.target.value;
+    setLang(newLang);
+    setUser({ ...user, language: newLang });
+    try {
+      await api.patch('/api/profile', { language: newLang });
+    } catch { /* non-critical */ }
+  }
+
   const displayName = user ? `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() || user.name : '';
 
-  if (user?.role === 'employee') {
+  if (user?.role === 'employee' || user?.role === 'supervisor') {
     return (
       <div className="mt-root">
         <div className="mt-screen" style={{ padding: '1.25rem 1rem 5rem' }}>
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>Account</h1>
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem' }}>{t('account')}</h1>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
             {[
-              ['Name',  displayName || '—'],
-              ['Email', user?.email  ?? '—'],
-              ['Role',  user?.role   ?? '—'],
-              ['Phone', user?.phone  ?? '—'],
+              [t('name'),  displayName || '—'],
+              [t('email'), user?.email  ?? '—'],
+              [t('role'),  user?.role   ?? '—'],
+              [t('phone'), user?.phone  ?? '—'],
             ].map(([label, value]) => (
               <div key={label} style={{ background: 'var(--color-surface,#fff)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '0.75rem 1rem' }}>
                 <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em', color: 'var(--color-grey-500)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{label}</div>
-                <div style={{ fontWeight: 500, textTransform: label === 'Role' ? 'capitalize' : undefined }}>{value}</div>
+                <div style={{ fontWeight: 500, textTransform: label === t('role') ? 'capitalize' : undefined }}>{value}</div>
               </div>
             ))}
+
+            {/* Language selector */}
+            <div style={{ background: 'var(--color-surface,#fff)', border: '1px solid var(--color-border)', borderRadius: '10px', padding: '0.75rem 1rem' }}>
+              <div style={{ fontSize: '0.6875rem', fontWeight: 600, letterSpacing: '0.06em', color: 'var(--color-grey-500)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{t('language')}</div>
+              <select
+                value={user?.language ?? lang}
+                onChange={handleLangChange}
+                style={{
+                  fontWeight: 500,
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: '1rem',
+                  color: 'var(--color-text)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  outline: 'none',
+                  width: '100%',
+                }}
+              >
+                {SUPPORTED_LANGS.map(l => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -87,13 +122,13 @@ export default function Profile() {
               href="/change-password"
               style={{ display: 'block', textAlign: 'center', padding: '0.75rem', border: '1px solid var(--color-border)', borderRadius: '10px', fontWeight: 500, color: 'var(--color-charcoal)', textDecoration: 'none', background: 'var(--color-surface,#fff)' }}
             >
-              Change Password
+              {t('changePassword')}
             </a>
             <button
               onClick={handleLogout}
               style={{ padding: '0.75rem', border: '1px solid var(--color-red,#d93025)', borderRadius: '10px', fontWeight: 500, color: 'var(--color-red,#d93025)', background: 'transparent', cursor: 'pointer' }}
             >
-              Sign Out
+              {t('signOut')}
             </button>
           </div>
         </div>

@@ -65,9 +65,10 @@ const EMPTY_FORM = { user_id: '', work_date: '', start_time: '', finish_time: ''
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Attendance() {
-  const { user }   = useAuth();
-  const { toast }  = useToast();
-  const isAdmin    = user?.role === 'administrator';
+  const { user }     = useAuth();
+  const { toast }    = useToast();
+  const isAdmin      = user?.role === 'administrator';
+  const isSupervisor = user?.role === 'supervisor';
 
   const [items,      setItems]      = useState([]);
   const [employees,  setEmployees]  = useState([]);
@@ -220,7 +221,7 @@ export default function Attendance() {
       <div className="page">
         <div className="page-header">
           <h1 className="page-title">Attendance</h1>
-          <button className="btn btn-solid" onClick={openCreate}>+ New Entry</button>
+          {!isSupervisor && <button className="btn btn-solid" onClick={openCreate}>+ New Entry</button>}
         </div>
 
         {/* Toolbar */}
@@ -302,7 +303,7 @@ export default function Attendance() {
                   </td>
                   <td>
                     <div className="td-actions">
-                      <button className="btn-ghost" onClick={() => openEdit(item)}>Edit</button>
+                      {!isSupervisor && <button className="btn-ghost" onClick={() => openEdit(item)}>Edit</button>}
                       {isAdmin && (
                         <button className="btn-ghost" style={{ color: 'var(--color-red)' }}
                           onClick={() => setConfirm({ id: item.id, name: item.employee_name, date: item.work_date })}>

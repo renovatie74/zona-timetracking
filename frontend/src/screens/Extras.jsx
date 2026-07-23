@@ -1,7 +1,8 @@
-import { useState, useEffect }         from 'react';
-import { createPortal }                from 'react-dom';
-import EmployeeNav                     from '../components/EmployeeNav.jsx';
+import { useState, useEffect } from 'react';
+import { createPortal }        from 'react-dom';
+import EmployeeNav             from '../components/EmployeeNav.jsx';
 import { getCurrentBusinessWeekStart } from '../lib/businessTime.js';
+import { useTranslation }      from '../i18n/index.jsx';
 
 function fetchJSON(path, opts = {}) {
   return fetch(path, { credentials: 'include', ...opts }).then(async r => {
@@ -11,62 +12,95 @@ function fetchJSON(path, opts = {}) {
   });
 }
 
-const TYPE_LABELS = { extra_work: 'Extra Work', own_cost: 'Own Cost' };
-
 function TypeBadge({ type }) {
-  const cls = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
-  return <span className={`ex-type-badge ${cls}`}>{TYPE_LABELS[type] ?? type}</span>;
+  const { t } = useTranslation();
+  const cls   = type === 'extra_work' ? 'ex-badge-work' : 'ex-badge-cost';
+  const label = type === 'extra_work' ? t('extraWork') : t('ownCost');
+  return <span className={`ex-type-badge ${cls}`}>{label}</span>;
 }
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation();
   const cls   = status === 'open' ? 'ex-status-open' : status === 'recorded' ? 'ex-status-recorded' : 'ex-status-processed';
-  const label = status === 'open' ? 'Open' : status === 'recorded' ? 'Recorded' : 'Processed';
+  const label = status === 'open' ? t('open') : status === 'recorded' ? 'Recorded' : t('processed');
   return <span className={`ex-status-badge ${cls}`}>{label}</span>;
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function fmtDate(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
+  const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // ── Project picker ────────────────────────────────────────────────────────────
 function ProjectPicker({ projects, onSelect, onCancel }) {
-  const recent = projects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank);
-  const rest   = projects.filter(p => p.recent_rank == null);
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? projects.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.project_code ?? '').toLowerCase().includes(q)
+      )
+    : null;
+
+  const recent = filtered ? [] : projects.filter(p => p.recent_rank != null).sort((a, b) => a.recent_rank - b.recent_rank);
+  const rest   = filtered ? filtered : projects.filter(p => p.recent_rank == null);
+
+  function renderRow(p) {
+    return (
+      <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
+        <span className="em-project-name">{p.name}</span>
+        {p.project_code && <span className="em-project-code">{p.project_code}</span>}
+      </button>
+    );
+  }
 
   return (
     <div className="em-overlay" onClick={onCancel}>
       <div className="em-picker" onClick={e => e.stopPropagation()}>
         <div className="em-picker-header">
-          <h2 className="em-picker-title">Select Project</h2>
+          <h2 className="em-picker-title">{t('selectProject')}</h2>
           <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
         </div>
+        <div className="em-search-wrap">
+          <input
+            className="em-search"
+            type="search"
+            placeholder={t('searchProject')}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            autoFocus
+          />
+        </div>
         <div className="em-project-list">
-          {recent.length > 0 && (
+          {filtered ? (
+            filtered.length === 0
+              ? <p className="em-no-results">{t('noProjectsFound')}</p>
+              : filtered.map(renderRow)
+          ) : (
             <>
-              <p className="em-section-label">Recent</p>
-              {recent.map(p => (
-                <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
-                  <span className="em-project-name">{p.name}</span>
-                  {p.project_code && <span className="em-project-code">{p.project_code}</span>}
-                </button>
-              ))}
+              {recent.length > 0 && (
+                <>
+                  <p className="em-section-label">{t('recent')}</p>
+                  {recent.map(renderRow)}
+                </>
+              )}
+              {rest.length > 0 && (
+                <>
+                  <p className="em-section-label">{t('allProjects')}</p>
+                  {rest.map(renderRow)}
+                </>
+              )}
+              {recent.length === 0 && rest.length === 0 && (
+                <p className="em-no-results">{t('noAssignedProjects')}</p>
+              )}
             </>
-          )}
-          {rest.length > 0 && (
-            <>
-              <p className="em-section-label">All Projects</p>
-              {rest.map(p => (
-                <button key={p.id} className="em-project-btn" onClick={() => onSelect(p)}>
-                  <span className="em-project-name">{p.name}</span>
-                  {p.project_code && <span className="em-project-code">{p.project_code}</span>}
-                </button>
-              ))}
-            </>
-          )}
-          {recent.length === 0 && rest.length === 0 && (
-            <p className="em-no-results">No assigned projects found</p>
           )}
         </div>
       </div>
@@ -76,24 +110,28 @@ function ProjectPicker({ projects, onSelect, onCancel }) {
 
 // ── Extra form sheet ──────────────────────────────────────────────────────────
 function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
+  const { t } = useTranslation();
   const isEdit = !!initial;
 
   const [type,            setType]            = useState(initial?.type ?? 'own_cost');
   const [selectedProject, setSelectedProject] = useState(
     initial ? (projects.find(p => p.id === initial.project_id) ?? null) : null,
   );
-  const [description, setDescription] = useState(initial?.description ?? '');
-  const [picking,   setPicking]   = useState(false);
-  const [formError, setFormError] = useState('');
+  const [extraDate,    setExtraDate]    = useState(initial?.extra_date ?? todayISO());
+  const [description,  setDescription]  = useState(initial?.description ?? '');
+  const [picking,      setPicking]      = useState(false);
+  const [formError,    setFormError]    = useState('');
 
   function handleSave() {
-    if (!selectedProject) { setFormError('Please select a project.'); return; }
-    if (!description.trim()) { setFormError('Description is required.'); return; }
+    if (!selectedProject) { setFormError(t('pleaseSelectProject')); return; }
+    if (!extraDate)        { setFormError(t('dateRequired'));        return; }
+    if (!description.trim()) { setFormError(t('descriptionRequired')); return; }
     setFormError('');
     onSave({
       id:          initial?.id,
       project_id:  selectedProject.id,
       type,
+      extra_date:  extraDate,
       description: description.trim(),
     });
   }
@@ -103,7 +141,7 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
       <div className="em-overlay" onClick={onCancel}>
         <div className="mt-form-sheet" onClick={e => e.stopPropagation()}>
           <div className="mt-form-header">
-            <h2 className="mt-form-title">{isEdit ? 'Edit Extra' : 'Add Extra'}</h2>
+            <h2 className="mt-form-title">{isEdit ? t('editExtra') : t('addExtra')}</h2>
             <button className="em-btn-close" onClick={onCancel} aria-label="Cancel">✕</button>
           </div>
 
@@ -115,19 +153,19 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
 
           {!isEdit && (
             <div className="mt-form-field" style={{ padding: '16px 20px 0' }}>
-              <label className="mt-form-label">Type *</label>
+              <label className="mt-form-label">{t('type')} *</label>
               <select
                 className="ex-form-select"
                 value={type}
                 onChange={e => { setType(e.target.value); setFormError(''); }}
               >
-                <option value="own_cost">Own Cost</option>
+                <option value="own_cost">{t('ownCost')}</option>
               </select>
             </div>
           )}
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Project *</label>
+            <label className="mt-form-label">{t('project')} *</label>
             <button
               className="mt-project-select-btn"
               type="button"
@@ -143,7 +181,7 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
                   )}
                 </span>
               ) : (
-                <span className="mt-project-placeholder">Select project…</span>
+                <span className="mt-project-placeholder">{t('selectProjectPlaceholder')}</span>
               )}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M4 6l4 4 4-4" stroke="var(--color-grey-500)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -152,10 +190,22 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
           </div>
 
           <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
-            <label className="mt-form-label">Description *</label>
+            <label className="mt-form-label">{t('date')} *</label>
+            <input
+              type="date"
+              className="ex-form-select"
+              style={{ boxSizing: 'border-box' }}
+              value={extraDate}
+              max={todayISO()}
+              onChange={e => { setExtraDate(e.target.value); setFormError(''); }}
+            />
+          </div>
+
+          <div className="mt-form-field" style={{ padding: '12px 20px 0' }}>
+            <label className="mt-form-label">{t('description')} *</label>
             <textarea
               className="ex-description-input"
-              placeholder="Describe the extra work or cost…"
+              placeholder={t('descriptionPlaceholder')}
               value={description}
               rows={4}
               onChange={e => setDescription(e.target.value)}
@@ -168,7 +218,7 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
             disabled={busy}
             style={{ marginBottom: 8 }}
           >
-            {busy ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Extra'}
+            {busy ? t('saving') : isEdit ? t('saveChanges') : t('addExtra')}
           </button>
         </div>
       </div>
@@ -187,6 +237,7 @@ function ExtraFormSheet({ projects, initial, onSave, onCancel, busy }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function Extras() {
+  const { t } = useTranslation();
   const [extras,       setExtras]       = useState([]);
   const [projects,     setProjects]     = useState([]);
   const [statusFilter, setStatusFilter] = useState('');   // '' = all
@@ -239,20 +290,20 @@ export default function Extras() {
     loadExtras(sf);
   }
 
-  async function handleSave({ id, project_id, type, description }) {
+  async function handleSave({ id, project_id, type, extra_date, description }) {
     setBusy(true);
     try {
       if (id) {
         await fetchJSON(`/api/extras/mine/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id, type, description }),
+          body: JSON.stringify({ project_id, type, extra_date, description }),
         });
       } else {
         await fetchJSON('/api/extras/mine', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ project_id, type, description }),
+          body: JSON.stringify({ project_id, type, extra_date, description }),
         });
       }
       setForm(null);
@@ -282,13 +333,13 @@ export default function Extras() {
       <div className="mt-screen">
         {/* Header */}
         <div className="ex-header">
-          <h1 className="ex-title">Extras</h1>
-          <button className="ex-add-btn" onClick={() => setForm({})}>+ Add</button>
+          <h1 className="ex-title">{t('extras')}</h1>
+          <button className="ex-add-btn" onClick={() => setForm({})}>{t('add')}</button>
         </div>
 
         {/* Status filter tabs */}
         <div className="ex-filter-tabs">
-          {[['', 'All'], ['open', 'Open'], ['processed', 'Processed']].map(([val, label]) => (
+          {[['', t('all')], ['open', t('open')], ['processed', t('processed')]].map(([val, label]) => (
             <button
               key={val}
               className={`filter-pill${statusFilter === val ? ' filter-pill-active' : ''}`}
@@ -304,9 +355,9 @@ export default function Extras() {
         {/* Extras list */}
         <div className="ex-list">
           {loading ? (
-            <div className="ex-empty">Loading…</div>
+            <div className="ex-empty">{t('loading')}</div>
           ) : extras.length === 0 ? (
-            <div className="ex-empty">No extras yet. Tap + Add to create one.</div>
+            <div className="ex-empty">{t('noExtras')}</div>
           ) : (
             extras.map(ex => {
               const canEdit   = ex.status === 'open';
@@ -317,7 +368,7 @@ export default function Extras() {
                   <div className="ex-card-top">
                     <TypeBadge type={ex.type} />
                     <StatusBadge status={ex.status} />
-                    <span className="ex-card-date">{fmtDate(ex.created_at)}</span>
+                    <span className="ex-card-date">{fmtDate(ex.extra_date ?? ex.created_at)}</span>
                   </div>
                   <div className="ex-card-project">{ex.project_name}</div>
                   <div className="ex-card-description">{ex.description}</div>
@@ -372,12 +423,12 @@ export default function Extras() {
       {deleteId && (
         <div className="em-overlay" onClick={() => setDeleteId(null)}>
           <div className="ex-confirm-sheet" onClick={e => e.stopPropagation()}>
-            <h3 className="ex-confirm-title">Delete Extra?</h3>
-            <p className="ex-confirm-body">This cannot be undone.</p>
+            <h3 className="ex-confirm-title">{t('deleteExtra')}</h3>
+            <p className="ex-confirm-body">{t('cannotBeUndone')}</p>
             <div className="ex-confirm-actions">
-              <button className="ex-confirm-cancel" onClick={() => setDeleteId(null)}>Cancel</button>
+              <button className="ex-confirm-cancel" onClick={() => setDeleteId(null)}>{t('cancel')}</button>
               <button className="ex-confirm-delete" onClick={() => handleDelete(deleteId)} disabled={busy}>
-                {busy ? 'Deleting…' : 'Delete'}
+                {busy ? t('deleting') : t('delete')}
               </button>
             </div>
           </div>

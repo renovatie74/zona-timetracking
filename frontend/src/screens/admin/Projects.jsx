@@ -354,7 +354,7 @@ export default function Projects() {
                 <tr className="empty-row"><td colSpan={colSpan}>No projects found.</td></tr>
               ) : filteredItems.map(p => (
                 <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/projects/${p.id}/timesheet`)}>
-                  <td onClick={e => e.stopPropagation()}><code style={{ fontSize: '0.8125rem' }}>{p.project_code}</code></td>
+                  <td onClick={e => e.stopPropagation()}><code style={{ fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>{p.project_code}</code></td>
                   <td style={{ fontWeight: 500 }}>
                     {p.name}
                     {(p.assignment_count ?? 0) > 0 && (
